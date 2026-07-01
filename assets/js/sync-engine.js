@@ -5,6 +5,120 @@
     return "id-" + Date.now() + "-" + Math.random().toString(16).slice(2);
   }
 
+  function zeroBalance() {
+    return { debit: 0, credit: 0 };
+  }
+
+  function makeLedgerFile(ledger, group, setup, companyId, now, userEmail) {
+    return {
+      schemaVersion: 1,
+      ledgerCode: ledger.code,
+      codeLocked: true,
+      ledgerName: ledger.name,
+      groupCode: ledger.groupCode,
+      groupName: group ? group.name : ledger.groupCode,
+      nature: group ? group.nature : "debit",
+      financialYear: setup.financialYear.code,
+      companyId,
+      opening: zeroBalance(),
+      closing: zeroBalance(),
+      transactions: [],
+      summary: { daily: {}, monthly: {}, yearly: {} },
+      systemLedger: true,
+      createdFromTemplate: setup.chartTemplateId,
+      createdAt: now,
+      createdBy: userEmail,
+      updatedAt: now,
+      updatedBy: userEmail,
+      revision: 1,
+      isDeleted: false
+    };
+  }
+
+  function makeGroupFile(group, ledgers, setup, companyId, now, userEmail) {
+    return {
+      schemaVersion: 1,
+      groupCode: group.code,
+      groupName: group.name,
+      parentCode: group.parentCode || null,
+      nature: group.nature,
+      financialYear: setup.financialYear.code,
+      companyId,
+      ledgers: ledgers.map(l => ({
+        ledgerCode: l.code,
+        ledgerName: l.name,
+        openingDebit: 0,
+        openingCredit: 0,
+        closingDebit: 0,
+        closingCredit: 0
+      })),
+      totals: {
+        openingDebit: 0,
+        openingCredit: 0,
+        closingDebit: 0,
+        closingCredit: 0
+      },
+      systemGroup: true,
+      createdFromTemplate: setup.chartTemplateId,
+      createdAt: now,
+      createdBy: userEmail,
+      updatedAt: now,
+      updatedBy: userEmail,
+      revision: 1,
+      isDeleted: false
+    };
+  }
+
+  async function createDefaultChartOfAccounts(setup, folderIds, companyId, now, userEmail) {
+    const template = setup.chartTemplate || (window.ChartTemplates ? window.ChartTemplates.getTemplate(setup.chartTemplateId) : null);
+    if (!template) return { template: null, groupFiles: {}, ledgerFiles: {}, ledgerSummary: [] };
+
+    const groupsByCode = new Map(template.groups.map(g => [g.code, g]));
+    const groupFiles = {};
+    const ledgerFiles = {};
+
+    for (const group of template.groups) {
+      const ledgers = template.ledgers.filter(l => l.groupCode === group.code);
+      const groupDoc = makeGroupFile(group, ledgers, setup, companyId, now, userEmail);
+      const file = await window.GoogleDrive.createJsonFile(group.code + ".json", folderIds.fy.ledgerGroups, groupDoc, {
+        appId: window.ERP_CONFIG.APP_ID,
+        type: "ledger-group",
+        companyId,
+        financialYear: setup.financialYear.code,
+        groupCode: group.code
+      });
+      groupFiles[group.code] = file.id;
+    }
+
+    for (const ledger of template.ledgers) {
+      const group = groupsByCode.get(ledger.groupCode);
+      const ledgerDoc = makeLedgerFile(ledger, group, setup, companyId, now, userEmail);
+      const file = await window.GoogleDrive.createJsonFile(ledger.code + ".json", folderIds.fy.ledgerFiles, ledgerDoc, {
+        appId: window.ERP_CONFIG.APP_ID,
+        type: "ledger",
+        companyId,
+        financialYear: setup.financialYear.code,
+        ledgerCode: ledger.code,
+        groupCode: ledger.groupCode
+      });
+      ledgerFiles[ledger.code] = file.id;
+    }
+
+    const ledgerSummary = template.groups.map(group => ({
+      groupCode: group.code,
+      groupName: group.name,
+      parentCode: group.parentCode || null,
+      nature: group.nature,
+      openingDebit: 0,
+      openingCredit: 0,
+      closingDebit: 0,
+      closingCredit: 0,
+      ledgerCount: template.ledgers.filter(l => l.groupCode === group.code).length
+    }));
+
+    return { template, groupFiles, ledgerFiles, ledgerSummary };
+  }
+
   async function createInitialDriveStructure(setup) {
     const user = window.GoogleAuth.getCurrentUser();
     const now = new Date().toISOString();
@@ -58,6 +172,8 @@
     folderIds.fy.inventoryGroups = invGroups.id;
     folderIds.fy.itemFiles = itemFiles.id;
 
+    const chartResult = await createDefaultChartOfAccounts(setup, folderIds, companyId, now, user.email);
+
     let logoFileInfo = null;
     if (setup.logoFile) {
       logoFileInfo = await window.GoogleDrive.uploadFile(
@@ -88,6 +204,13 @@
       } : null,
       taxName: setup.taxName,
       taxRate: setup.taxRate,
+      chartOfAccounts: chartResult.template ? {
+        templateId: chartResult.template.id,
+        templateName: chartResult.template.name,
+        templateDescription: chartResult.template.description,
+        groupCount: chartResult.template.groups.length,
+        ledgerCount: chartResult.template.ledgers.length
+      } : null,
       createdAt: now,
       createdBy: user.email,
       revision: 1
@@ -99,6 +222,8 @@
       code: setup.financialYear.code,
       startDate: setup.financialYear.startDate,
       endDate: setup.financialYear.endDate,
+      chartTemplateId: setup.chartTemplateId,
+      chartTemplateName: chartResult.template ? chartResult.template.name : null,
       createdAt: now,
       revision: 1
     };
@@ -125,13 +250,26 @@
     manifest.fileIds.company = companyFile.id;
     manifest.fileIds.manifest = manifestFile.id;
     manifest.fileIds.financialYear = fyFile.id;
+    manifest.fileIds.ledgerGroups = chartResult.groupFiles;
+    manifest.fileIds.ledgers = chartResult.ledgerFiles;
 
     // Initial derived files
     manifest.fileIds.ledgerSummary = (await window.GoogleDrive.createJsonFile("ledger-summary.json", folderIds.fy.ledgers, {
+      schemaVersion: 1,
+      companyId,
       financialYear: setup.financialYear.code,
+      chartTemplateId: setup.chartTemplateId,
+      chartTemplateName: chartResult.template ? chartResult.template.name : null,
       revision: 1,
-      groups: [],
-      updatedAt: now
+      groups: chartResult.ledgerSummary,
+      totals: {
+        openingDebit: 0,
+        openingCredit: 0,
+        closingDebit: 0,
+        closingCredit: 0
+      },
+      updatedAt: now,
+      updatedBy: user.email
     }, { appId: window.ERP_CONFIG.APP_ID, type: "ledger-summary", companyId })).id;
 
     manifest.fileIds.inventorySummary = (await window.GoogleDrive.createJsonFile("inventory-summary.json", folderIds.fy.inventory, {
