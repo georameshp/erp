@@ -61,7 +61,18 @@
     const form = new FormData();
     form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
     form.append("file", new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-    return await (await driveFetch(DRIVE_UPLOAD_API + "/files?uploadType=multipart&fields=id,name,modifiedTime,appProperties", {
+    return await (await driveFetch(DRIVE_UPLOAD_API + "/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,webViewLink,webContentLink,appProperties", {
+      method: "POST",
+      body: form
+    })).json();
+  }
+
+  async function uploadFile(name, parentId, fileOrBlob, mimeType, appProperties) {
+    const metadata = { name, mimeType: mimeType || fileOrBlob.type || "application/octet-stream", parents: [parentId], appProperties: appProperties || {} };
+    const form = new FormData();
+    form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
+    form.append("file", fileOrBlob);
+    return await (await driveFetch(DRIVE_UPLOAD_API + "/files?uploadType=multipart&fields=id,name,mimeType,modifiedTime,webViewLink,webContentLink,appProperties", {
       method: "POST",
       body: form
     })).json();
@@ -115,6 +126,7 @@
     searchAppFolder,
     createFolder,
     createJsonFile,
+    uploadFile,
     updateJsonFile,
     readJsonFile,
     findChildByName,
