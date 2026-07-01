@@ -58,11 +58,34 @@
     folderIds.fy.inventoryGroups = invGroups.id;
     folderIds.fy.itemFiles = itemFiles.id;
 
+    let logoFileInfo = null;
+    if (setup.logoFile) {
+      logoFileInfo = await window.GoogleDrive.uploadFile(
+        "company-logo-" + setup.logoFile.name,
+        folderIds.attachments,
+        setup.logoFile,
+        setup.logoFile.type,
+        { appId: window.ERP_CONFIG.APP_ID, type: "company-logo", companyId }
+      );
+    }
+
     const company = {
       schemaVersion: 1,
       companyId,
       companyName: setup.companyName,
+      address: setup.address || "",
+      country: setup.country || null,
       currency: setup.currency,
+      email: setup.email || "",
+      contactNumber: setup.contactNumber || "",
+      contactPerson: setup.contactPerson || "",
+      logo: logoFileInfo ? {
+        fileId: logoFileInfo.id,
+        name: logoFileInfo.name,
+        mimeType: logoFileInfo.mimeType,
+        webViewLink: logoFileInfo.webViewLink || null,
+        webContentLink: logoFileInfo.webContentLink || null
+      } : null,
       taxName: setup.taxName,
       taxRate: setup.taxRate,
       createdAt: now,
