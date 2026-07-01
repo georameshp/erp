@@ -69,8 +69,9 @@ $(function () {
 
   function initCountrySelect() {
     const $country = $("#country");
-    const defaultOption = new Option("Oman", JSON.stringify({ code: "OM", name: "Oman", currency: { code: "OMR", name: "Omani rial" } }), true, true);
-    $country.append(defaultOption).trigger("change");
+    const defaultOption = new Option("Oman (OM)", JSON.stringify({ code: "OM", name: "Oman", currency: { code: "OMR", name: "Omani rial" } }), true, true);
+    $country.empty().append(defaultOption).trigger("change");
+
     $country.on("change", function () {
       const country = parseSelectedJson("#country");
       if (country && country.currency && country.currency.code) {
@@ -79,24 +80,24 @@ $(function () {
         $("#currency").append(option).trigger("change");
       }
     });
+
     $country.select2({
       theme: "bootstrap4",
       width: "100%",
+      dropdownParent: $("#setupScreen"),
       placeholder: "Search country",
+      minimumInputLength: 0,
       ajax: {
         delay: 250,
         transport: function (params, success, failure) {
-          fetchCountries().then(success).catch(failure);
+          const term = (params.data && params.data.term) ? params.data.term : "";
+          fetchCountries(term)
+            .then(countries => success({ results: countriesToSelect2(countries) }))
+            .catch(failure);
           return { abort: function () {} };
         },
-        processResults: function (countries, params) {
-          const term = ((params.term || "")).toLowerCase();
-          return {
-            results: countries
-              .filter(c => !term || c.name.toLowerCase().includes(term) || c.code.toLowerCase().includes(term))
-              .slice(0, 50)
-              .map(c => ({ id: JSON.stringify({ code: c.code, name: c.name, currency: c.currency }), text: c.name + " (" + c.code + ")" }))
-          };
+        processResults: function (data) {
+          return data;
         }
       }
     });
@@ -105,51 +106,89 @@ $(function () {
   function initCurrencySelect() {
     const $currency = $("#currency");
     const defaultOption = new Option("OMR - Omani rial", JSON.stringify({ code: "OMR", name: "Omani rial" }), true, true);
-    $currency.append(defaultOption).trigger("change");
+    $currency.empty().append(defaultOption).trigger("change");
     $currency.select2({
       theme: "bootstrap4",
       width: "100%",
+      dropdownParent: $("#setupScreen"),
       placeholder: "Search currency",
+      minimumInputLength: 0,
       ajax: {
         delay: 250,
         transport: function (params, success, failure) {
-          fetchCurrencies().then(success).catch(failure);
+          const term = (params.data && params.data.term) ? params.data.term : "";
+          fetchCurrencies(term)
+            .then(currencies => success({ results: currenciesToSelect2(currencies) }))
+            .catch(failure);
           return { abort: function () {} };
         },
-        processResults: function (currencies, params) {
-          const term = ((params.term || "")).toLowerCase();
-          return {
-            results: currencies
-              .filter(c => !term || c.code.toLowerCase().includes(term) || c.name.toLowerCase().includes(term))
-              .slice(0, 50)
-              .map(c => ({ id: JSON.stringify(c), text: c.code + " - " + c.name }))
-          };
+        processResults: function (data) {
+          return data;
         }
       }
     });
   }
 
   let countriesCache = null;
-  async function fetchCountries() {
+
+  function normalizeCountry(c) {
+    const currencies = c.currencies || {};
+    const firstCode = Object.keys(currencies)[0];
+    return {
+      code: c.cca2,
+      name: c.name && c.name.common ? c.name.common : c.cca2,
+      currencies,
+      currency: firstCode ? { code: firstCode, name: currencies[firstCode].name || firstCode, symbol: currencies[firstCode].symbol || "" } : null
+    };
+  }
+
+  function countriesToSelect2(countries) {
+    return countries.slice(0, 75).map(c => ({
+      id: JSON.stringify({ code: c.code, name: c.name, currency: c.currency }),
+      text: c.name + " (" + c.code + ")"
+    }));
+  }
+
+  function currenciesToSelect2(currencies) {
+    return currencies.slice(0, 75).map(c => ({
+      id: JSON.stringify(c),
+      text: c.code + " - " + c.name
+    }));
+  }
+
+  async function fetchAllCountries() {
     if (countriesCache) return countriesCache;
     const res = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2,currencies");
     if (!res.ok) throw new Error("Country API failed.");
     const data = await res.json();
-    countriesCache = data.map(c => {
-      const currencies = c.currencies || {};
-      const firstCode = Object.keys(currencies)[0];
-      return {
-        code: c.cca2,
-        name: c.name && c.name.common ? c.name.common : c.cca2,
-        currencies,
-        currency: firstCode ? { code: firstCode, name: currencies[firstCode].name || firstCode, symbol: currencies[firstCode].symbol || "" } : null
-      };
-    }).sort((a, b) => a.name.localeCompare(b.name));
+    countriesCache = data.map(normalizeCountry).sort((a, b) => a.name.localeCompare(b.name));
     return countriesCache;
   }
 
-  async function fetchCurrencies() {
-    const countries = await fetchCountries();
+  async function fetchCountries(term) {
+    const search = String(term || "").trim().toLowerCase();
+
+    // For an actual AJAX search, call the API by name when the user types.
+    // If the API returns 404 for partial names, fall back to the cached all-country list.
+    if (search.length >= 2) {
+      try {
+        const res = await fetch("https://restcountries.com/v3.1/name/" + encodeURIComponent(search) + "?fields=name,cca2,currencies");
+        if (res.ok) {
+          const data = await res.json();
+          return data.map(normalizeCountry).sort((a, b) => a.name.localeCompare(b.name));
+        }
+      } catch (e) {
+        // Fallback below.
+      }
+    }
+
+    const countries = await fetchAllCountries();
+    return countries.filter(c => !search || c.name.toLowerCase().includes(search) || c.code.toLowerCase().includes(search));
+  }
+
+  async function fetchCurrencies(term) {
+    const search = String(term || "").trim().toLowerCase();
+    const countries = await fetchAllCountries();
     const map = new Map();
     countries.forEach(country => {
       Object.keys(country.currencies || {}).forEach(code => {
@@ -157,7 +196,9 @@ $(function () {
         if (!map.has(code)) map.set(code, { code, name: cur.name || code, symbol: cur.symbol || "" });
       });
     });
-    return Array.from(map.values()).sort((a, b) => a.code.localeCompare(b.code));
+    return Array.from(map.values())
+      .filter(c => !search || c.code.toLowerCase().includes(search) || c.name.toLowerCase().includes(search))
+      .sort((a, b) => a.code.localeCompare(b.code));
   }
 
   function parseSelectedJson(selector) {
@@ -288,7 +329,30 @@ $(function () {
     $("#pageTitle").text(titles[route] || "Dashboard");
   }
 
+  async function bootstrapApp() {
+    initSetupPlugins();
+
+    if (!window.GoogleAuth.isConfigured()) {
+      showScreen("login");
+      return;
+    }
+
+    try {
+      showLoading("Restoring Google session...");
+      const session = await window.GoogleAuth.restoreSession();
+      hideLoading();
+      if (session) {
+        await startAfterLogin();
+      } else {
+        showScreen("login");
+      }
+    } catch (err) {
+      hideLoading();
+      console.warn("Session restore failed:", err);
+      showScreen("login");
+    }
+  }
+
   window.addEventListener("hashchange", () => routeTo(location.hash));
-  initSetupPlugins();
-  showScreen("login");
+  bootstrapApp();
 });
