@@ -129,23 +129,82 @@ $(function () {
     });
   }
 
-  let countriesCache = null;
+  const countrySearchCache = new Map();
+
+  function getCountryApiHeaders() {
+    return {
+      Authorization: "Bearer " + window.ERP_CONFIG.RESTCOUNTRIES_API_KEY
+    };
+  }
+
+  function getCountryName(c) {
+    if (!c) return "";
+    if (typeof c.name === "string") return c.name;
+    return (c.name && (c.name.common || c.name.official || c.name.nativeName)) || c.commonName || c.officialName || c.country || "";
+  }
+
+  function getCountryCode(c) {
+    return c.cca2 || c.cca3 || c.iso2 || c.iso3 || c.alpha2Code || c.alpha3Code || c.code || "";
+  }
+
+  function normalizeCurrencies(rawCurrencies) {
+    const result = {};
+
+    if (!rawCurrencies) return result;
+
+    // Old REST Countries format: { OMR: { name: "Omani rial", symbol: "ر.ع." } }
+    if (!Array.isArray(rawCurrencies) && typeof rawCurrencies === "object") {
+      Object.keys(rawCurrencies).forEach(code => {
+        const cur = rawCurrencies[code] || {};
+        result[code] = {
+          code,
+          name: cur.name || cur.currency || code,
+          symbol: cur.symbol || ""
+        };
+      });
+      return result;
+    }
+
+    // Newer/registered API formats may return arrays.
+    if (Array.isArray(rawCurrencies)) {
+      rawCurrencies.forEach(cur => {
+        if (typeof cur === "string") {
+          result[cur] = { code: cur, name: cur, symbol: "" };
+          return;
+        }
+        const code = cur.code || cur.isoCode || cur.currencyCode || cur.id || cur.name;
+        if (!code) return;
+        result[code] = {
+          code,
+          name: cur.name || cur.currency || code,
+          symbol: cur.symbol || ""
+        };
+      });
+    }
+
+    return result;
+  }
 
   function normalizeCountry(c) {
-    const currencies = c.currencies || {};
+    const currencies = normalizeCurrencies(c.currencies || c.currency || c.money || c.currencyInfo);
     const firstCode = Object.keys(currencies)[0];
+    const code = getCountryCode(c);
     return {
-      code: c.cca2,
-      name: c.name && c.name.common ? c.name.common : c.cca2,
+      code,
+      name: getCountryName(c) || code,
       currencies,
-      currency: firstCode ? { code: firstCode, name: currencies[firstCode].name || firstCode, symbol: currencies[firstCode].symbol || "" } : null
+      currency: firstCode ? {
+        code: firstCode,
+        name: currencies[firstCode].name || firstCode,
+        symbol: currencies[firstCode].symbol || ""
+      } : null
     };
   }
 
   function countriesToSelect2(countries) {
     return countries.slice(0, 75).map(c => ({
       id: JSON.stringify({ code: c.code, name: c.name, currency: c.currency }),
-      text: c.name + " (" + c.code + ")"
+      text: c.name + (c.code ? " (" + c.code + ")" : "")
     }));
   }
 
@@ -156,47 +215,64 @@ $(function () {
     }));
   }
 
-  async function fetchAllCountries() {
-    if (countriesCache) return countriesCache;
-    const res = await fetch("https://restcountries.com/v3.1/all?fields=name,cca2,currencies");
-    if (!res.ok) throw new Error("Country API failed.");
-    const data = await res.json();
-    countriesCache = data.map(normalizeCountry).sort((a, b) => a.name.localeCompare(b.name));
-    return countriesCache;
+  function commonCurrencies() {
+    return [
+      { code: "OMR", name: "Omani rial" },
+      { code: "AED", name: "United Arab Emirates dirham" },
+      { code: "USD", name: "United States dollar" },
+      { code: "EUR", name: "Euro" },
+      { code: "GBP", name: "Pound sterling" },
+      { code: "INR", name: "Indian rupee" },
+      { code: "SAR", name: "Saudi riyal" },
+      { code: "QAR", name: "Qatari riyal" },
+      { code: "KWD", name: "Kuwaiti dinar" },
+      { code: "BHD", name: "Bahraini dinar" },
+      { code: "CAD", name: "Canadian dollar" },
+      { code: "AUD", name: "Australian dollar" },
+      { code: "JPY", name: "Japanese yen" },
+      { code: "CNY", name: "Chinese yuan" }
+    ];
   }
 
   async function fetchCountries(term) {
-    const search = String(term || "").trim().toLowerCase();
+    const search = String(term || "oman").trim();
+    const cacheKey = search.toLowerCase();
+    if (countrySearchCache.has(cacheKey)) return countrySearchCache.get(cacheKey);
 
-    // For an actual AJAX search, call the API by name when the user types.
-    // If the API returns 404 for partial names, fall back to the cached all-country list.
-    if (search.length >= 2) {
-      try {
-        const res = await fetch("https://restcountries.com/v3.1/name/" + encodeURIComponent(search) + "?fields=name,cca2,currencies");
-        if (res.ok) {
-          const data = await res.json();
-          return data.map(normalizeCountry).sort((a, b) => a.name.localeCompare(b.name));
-        }
-      } catch (e) {
-        // Fallback below.
-      }
-    }
+    const url = window.ERP_CONFIG.RESTCOUNTRIES_API_BASE + "?q=" + encodeURIComponent(search);
+    const res = await fetch(url, { headers: getCountryApiHeaders() });
+    if (!res.ok) throw new Error("Country API failed: " + res.status);
 
-    const countries = await fetchAllCountries();
-    return countries.filter(c => !search || c.name.toLowerCase().includes(search) || c.code.toLowerCase().includes(search));
+    const json = await res.json();
+    const rows = Array.isArray(json) ? json : (json.data || json.results || json.countries || []);
+    const countries = rows.map(normalizeCountry).filter(c => c.name || c.code).sort((a, b) => a.name.localeCompare(b.name));
+    countrySearchCache.set(cacheKey, countries);
+    return countries;
   }
 
   async function fetchCurrencies(term) {
     const search = String(term || "").trim().toLowerCase();
-    const countries = await fetchAllCountries();
-    const map = new Map();
-    countries.forEach(country => {
-      Object.keys(country.currencies || {}).forEach(code => {
-        const cur = country.currencies[code] || {};
-        if (!map.has(code)) map.set(code, { code, name: cur.name || code, symbol: cur.symbol || "" });
-      });
-    });
-    return Array.from(map.values())
+    let currencies = commonCurrencies();
+
+    // Also query the country API. Searching a country such as "canada" returns CAD;
+    // searching "oman" returns OMR. Common currencies remain available for code searches.
+    if (search.length >= 2) {
+      try {
+        const countries = await fetchCountries(search);
+        const map = new Map(currencies.map(c => [c.code, c]));
+        countries.forEach(country => {
+          Object.keys(country.currencies || {}).forEach(code => {
+            const cur = country.currencies[code] || {};
+            if (!map.has(code)) map.set(code, { code, name: cur.name || code, symbol: cur.symbol || "" });
+          });
+        });
+        currencies = Array.from(map.values());
+      } catch (e) {
+        // Keep common currency fallback.
+      }
+    }
+
+    return currencies
       .filter(c => !search || c.code.toLowerCase().includes(search) || c.name.toLowerCase().includes(search))
       .sort((a, b) => a.code.localeCompare(b.code));
   }
