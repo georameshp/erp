@@ -8,6 +8,9 @@
   <!-- AdminLTE stack selected: Bootstrap 4 + jQuery + AdminLTE. These load on GitHub Pages/browser. -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.4/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/css/adminlte.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@ttskch/select2-bootstrap4-theme@1.5.2/dist/select2-bootstrap4.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/css/bootstrap-datepicker3.min.css">
   <link rel="stylesheet" href="assets/css/custom.css">
 </head>
 <body class="hold-transition sidebar-mini layout-fixed">
@@ -28,9 +31,7 @@
       </div>
       <div class="card-body">
         <p class="login-box-msg">Sign in with Google to open your ERP data from Google Drive.</p>
-        <div class="alert alert-warning small mb-3">
-          Configure your Google OAuth Client ID in <code>assets/js/config.js</code> first.
-        </div>
+
         <button id="btnGoogleLogin" class="btn btn-primary btn-block">
           <i class="fab fa-google mr-2"></i> Login with Google
         </button>
@@ -58,34 +59,78 @@
               </div>
               <div class="form-row">
                 <div class="form-group col-md-8">
-                  <label>Company Name</label>
+                  <label>Company Name <span class="text-danger">*</span></label>
                   <input id="companyName" class="form-control" required placeholder="ABC Trading LLC">
                 </div>
                 <div class="form-group col-md-4">
-                  <label>Currency</label>
-                  <input id="currency" class="form-control" value="AED" required>
+                  <label>Company Logo</label>
+                  <div class="custom-file">
+                    <input id="companyLogo" type="file" class="custom-file-input" accept="image/png,image/jpeg,image/webp,image/gif">
+                    <label class="custom-file-label" for="companyLogo">Choose logo</label>
+                  </div>
+                  <small class="text-muted">Saved to Google Drive during setup.</small>
                 </div>
               </div>
+
+              <div class="form-row">
+                <div class="form-group col-md-12">
+                  <label>Address</label>
+                  <textarea id="companyAddress" class="form-control" rows="2" placeholder="Building, street, area, city"></textarea>
+                </div>
+              </div>
+
               <div class="form-row">
                 <div class="form-group col-md-4">
-                  <label>Financial Year Code</label>
-                  <input id="fyCode" class="form-control" value="FY-2026-2027" required>
+                  <label>Country <span class="text-danger">*</span></label>
+                  <select id="country" class="form-control select2-ajax" required></select>
+                  <small class="text-muted">Loaded through REST Countries API.</small>
                 </div>
                 <div class="form-group col-md-4">
+                  <label>Currency <span class="text-danger">*</span></label>
+                  <select id="currency" class="form-control select2-ajax" required></select>
+                  <small class="text-muted">Loaded through REST Countries API.</small>
+                </div>
+                <div class="form-group col-md-4">
+                  <label>Email</label>
+                  <input id="companyEmail" type="email" class="form-control" placeholder="info@example.com">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group col-md-4">
+                  <label>Contact Number</label>
+                  <input id="contactNumber" class="form-control" placeholder="+968 ...">
+                </div>
+                <div class="form-group col-md-4">
+                  <label>Contact Person Name</label>
+                  <input id="contactPerson" class="form-control" placeholder="Contact person">
+                </div>
+                <div class="form-group col-md-4">
+                  <label>Financial Year <span class="text-danger">*</span></label>
+                  <select id="fyCode" class="form-control select2-basic" required></select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group col-md-4">
                   <label>Start Date</label>
-                  <input id="fyStart" type="date" class="form-control" value="2026-01-01" required>
+                  <div class="input-group date" id="fyStartPicker" data-target-input="nearest">
+                    <input id="fyStart" type="text" class="form-control datepicker" value="01-01-2026" required>
+                    <div class="input-group-append"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></div>
+                  </div>
                 </div>
                 <div class="form-group col-md-4">
                   <label>End Date</label>
-                  <input id="fyEnd" type="date" class="form-control" value="2026-12-31" required>
+                  <div class="input-group date" id="fyEndPicker" data-target-input="nearest">
+                    <input id="fyEnd" type="text" class="form-control datepicker" value="31-12-2026" required>
+                    <div class="input-group-append"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></div>
+                  </div>
                 </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group col-md-6">
+                <div class="form-group col-md-2">
                   <label>Tax Name</label>
                   <input id="taxName" class="form-control" value="VAT">
                 </div>
-                <div class="form-group col-md-6">
+                <div class="form-group col-md-2">
                   <label>Tax Rate %</label>
                   <input id="taxRate" type="number" step="0.01" class="form-control" value="5">
                 </div>
@@ -210,13 +255,15 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/admin-lte@3.2/dist/js/adminlte.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.10.0/dist/js/bootstrap-datepicker.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-<script src="assets/js/config.js?v=20260701-2"></script>
-<script src="assets/js/local-db.js?v=20260701-2"></script>
-<script src="assets/js/google-auth.js?v=20260701-2"></script>
-<script src="assets/js/google-drive.js?v=20260701-2"></script>
-<script src="assets/js/sync-engine.js?v=20260701-2"></script>
-<script src="assets/js/app.js?v=20260701-2"></script>
-</body>
+<script src="assets/js/config.js?v=20260701-3"></script>
+<script src="assets/js/local-db.js?v=20260701-3"></script>
+<script src="assets/js/google-auth.js?v=20260701-3"></script>
+<script src="assets/js/google-drive.js?v=20260701-3"></script>
+<script src="assets/js/sync-engine.js?v=20260701-3"></script>
+<script src="assets/js/app.js?v=20260701-3"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a144ede709e8f9f2',t:'MTc4MjkwMzg2MA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
