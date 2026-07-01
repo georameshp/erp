@@ -14,4 +14,7 @@ body { background: #f4f6f9; }
 .login-box { width: 380px; max-width: calc(100% - 30px); }
 pre { white-space: pre-wrap; word-break: break-word; }
 .brand-link .brand-image { float: left; line-height: .8; max-height: 33px; width: auto; }
+.select2-container--bootstrap4 .select2-selection--single { height: calc(2.25rem + 2px) !important; }
+.custom-file-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.datepicker-dropdown { z-index: 9999 !important; }
 @media (max-width: 767px) { .content-header .text-right { text-align: left !important; margin-top: .5rem; } }
