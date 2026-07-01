@@ -3,6 +3,7 @@ $(function () {
   const $login = $("#loginScreen");
   const $setup = $("#setupScreen");
   const $app = $("#appShell");
+  let setupPluginsInitialized = false;
 
   function showLoading(text) {
     $("#loadingText").text(text || "Loading...");
@@ -23,6 +24,9 @@ $(function () {
   }
 
   function initSetupPlugins() {
+    if (setupPluginsInitialized) return;
+    setupPluginsInitialized = true;
+
     initFinancialYearList();
     initChartTemplateList();
 
@@ -35,7 +39,7 @@ $(function () {
     }
 
     if ($.fn.select2) {
-      $(".select2-basic").select2({ theme: "bootstrap4", width: "100%" });
+      initBasicSetupSelect2();
       initCurrencySelect();
       initCountrySelect();
     }
@@ -52,6 +56,13 @@ $(function () {
       if (start) $("#fyStart").val(start);
       if (end) $("#fyEnd").val(end);
     });
+  }
+
+  function initBasicSetupSelect2() {
+    // Use an explicit dropdown parent because the setup screen is dynamically shown/hidden.
+    // This avoids Select2 dropdowns rendering behind AdminLTE/layout elements.
+    $("#fyCode").select2({ theme: "bootstrap4", width: "100%", dropdownParent: $("#setupScreen") });
+    $("#chartTemplate").select2({ theme: "bootstrap4", width: "100%", dropdownParent: $("#setupScreen") });
   }
 
   function initChartTemplateList() {
@@ -252,20 +263,56 @@ $(function () {
     ];
   }
 
+  function commonCountries() {
+    return [
+      { code: "OM", name: "Oman", currency: { code: "OMR", name: "Omani rial" } },
+      { code: "AE", name: "United Arab Emirates", currency: { code: "AED", name: "United Arab Emirates dirham" } },
+      { code: "SA", name: "Saudi Arabia", currency: { code: "SAR", name: "Saudi riyal" } },
+      { code: "QA", name: "Qatar", currency: { code: "QAR", name: "Qatari riyal" } },
+      { code: "KW", name: "Kuwait", currency: { code: "KWD", name: "Kuwaiti dinar" } },
+      { code: "BH", name: "Bahrain", currency: { code: "BHD", name: "Bahraini dinar" } },
+      { code: "IN", name: "India", currency: { code: "INR", name: "Indian rupee" } },
+      { code: "US", name: "United States", currency: { code: "USD", name: "United States dollar" } },
+      { code: "GB", name: "United Kingdom", currency: { code: "GBP", name: "Pound sterling" } },
+      { code: "CA", name: "Canada", currency: { code: "CAD", name: "Canadian dollar" } },
+      { code: "AU", name: "Australia", currency: { code: "AUD", name: "Australian dollar" } },
+      { code: "DE", name: "Germany", currency: { code: "EUR", name: "Euro" } },
+      { code: "FR", name: "France", currency: { code: "EUR", name: "Euro" } },
+      { code: "IT", name: "Italy", currency: { code: "EUR", name: "Euro" } },
+      { code: "CN", name: "China", currency: { code: "CNY", name: "Chinese yuan" } },
+      { code: "JP", name: "Japan", currency: { code: "JPY", name: "Japanese yen" } }
+    ];
+  }
+
+  function fallbackCountries(term) {
+    const search = String(term || "").trim().toLowerCase();
+    return commonCountries().filter(c => !search || c.name.toLowerCase().includes(search) || c.code.toLowerCase().includes(search));
+  }
+
   async function fetchCountries(term) {
     const search = String(term || "oman").trim();
     const cacheKey = search.toLowerCase();
     if (countrySearchCache.has(cacheKey)) return countrySearchCache.get(cacheKey);
 
-    const url = window.ERP_CONFIG.RESTCOUNTRIES_API_BASE + "?q=" + encodeURIComponent(search);
-    const res = await fetch(url, { headers: getCountryApiHeaders() });
-    if (!res.ok) throw new Error("Country API failed: " + res.status);
+    try {
+      const url = window.ERP_CONFIG.RESTCOUNTRIES_API_BASE + "?q=" + encodeURIComponent(search);
+      const res = await fetch(url, { headers: getCountryApiHeaders() });
+      if (!res.ok) throw new Error("Country API failed: " + res.status);
 
-    const json = await res.json();
-    const rows = Array.isArray(json) ? json : (json.data || json.results || json.countries || []);
-    const countries = rows.map(normalizeCountry).filter(c => c.name || c.code).sort((a, b) => a.name.localeCompare(b.name));
-    countrySearchCache.set(cacheKey, countries);
-    return countries;
+      const json = await res.json();
+      const rows = Array.isArray(json) ? json : (json.data || json.results || json.countries || []);
+      const countries = rows.map(normalizeCountry).filter(c => c.name || c.code).sort((a, b) => a.name.localeCompare(b.name));
+      if (countries.length) {
+        countrySearchCache.set(cacheKey, countries);
+        return countries;
+      }
+    } catch (e) {
+      console.warn("REST Countries API unavailable, using local fallback countries:", e.message || e);
+    }
+
+    const fallback = fallbackCountries(search);
+    countrySearchCache.set(cacheKey, fallback);
+    return fallback;
   }
 
   async function fetchCurrencies(term) {
@@ -323,6 +370,9 @@ $(function () {
     hideLoading();
     if (!state) {
       showScreen("setup");
+      // Initialize Select2/datepickers only after the setup screen is visible.
+      // Select2 can render empty/incorrect dropdowns when initialized inside hidden containers.
+      setTimeout(initSetupPlugins, 0);
       return;
     }
     renderState(state);
@@ -428,8 +478,6 @@ $(function () {
   }
 
   async function bootstrapApp() {
-    initSetupPlugins();
-
     if (!window.GoogleAuth.isConfigured()) {
       showScreen("login");
       return;
