@@ -24,6 +24,7 @@ $(function () {
 
   function initSetupPlugins() {
     initFinancialYearList();
+    initChartTemplateList();
 
     if ($.fn.datepicker) {
       $(".datepicker").datepicker({
@@ -51,6 +52,23 @@ $(function () {
       if (start) $("#fyStart").val(start);
       if (end) $("#fyEnd").val(end);
     });
+  }
+
+  function initChartTemplateList() {
+    const $template = $("#chartTemplate");
+    if (!$template.length || !window.ChartTemplates) return;
+    $template.empty();
+    window.ChartTemplates.list.forEach((tpl, index) => {
+      const opt = new Option(tpl.name, tpl.id, index === 0, index === 0);
+      $(opt).attr("data-description", tpl.description);
+      $template.append(opt);
+    });
+    $template.on("change", function () {
+      const tpl = window.ChartTemplates.getTemplate($(this).val());
+      $("#chartTemplateHelp").text(tpl.description + ` (${tpl.groups.length} groups, ${tpl.ledgers.length} ledgers will be created.)`);
+    });
+    const first = window.ChartTemplates.getTemplate($template.val());
+    if (first) $("#chartTemplateHelp").text(first.description + ` (${first.groups.length} groups, ${first.ledgers.length} ledgers will be created.)`);
   }
 
   function initFinancialYearList() {
@@ -293,7 +311,9 @@ $(function () {
     $("#userEmail").text(user && user.email ? user.email : "User");
     $("#companyJson").text(JSON.stringify(state.company || {}, null, 2));
     $("#driveStateJson").text(JSON.stringify(state, null, 2));
-    $("#statEvents").text((state.manifest && state.manifest.eventCount) || 0);
+    const manifest = state.manifest || {};
+    $("#statLedgers").text(manifest.fileIds && manifest.fileIds.ledgers ? Object.keys(manifest.fileIds.ledgers).length : 0);
+    $("#statEvents").text(manifest.eventCount || 0);
     $("#syncBadge").removeClass("badge-secondary badge-danger").addClass("badge-success").text("Synced");
   }
 
@@ -344,7 +364,9 @@ $(function () {
         code: $("#fyCode").val(),
         startDate: dateToIso($("#fyStart").val()),
         endDate: dateToIso($("#fyEnd").val())
-      }
+      },
+      chartTemplateId: $("#chartTemplate").val(),
+      chartTemplate: window.ChartTemplates ? window.ChartTemplates.getTemplate($("#chartTemplate").val()) : null
     };
     try {
       showLoading("Creating ERP folders and files in Google Drive...");
