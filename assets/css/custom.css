@@ -1,0 +1,17 @@
+/*
+  DriveERP custom fallback styles.
+  AdminLTE/Bootstrap load from CDN on GitHub Pages. The fallback below keeps the page usable
+  in restricted previews where external CSS is blocked.
+*/
+:root { --erp-primary: #007bff; }
+body { background: #f4f6f9; }
+.app-loading {
+  position: fixed; inset: 0; background: rgba(255,255,255,.8); z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+}
+.content-wrapper-full { min-height: 100vh; background: #f4f6f9; }
+.login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.login-box { width: 380px; max-width: calc(100% - 30px); }
+pre { white-space: pre-wrap; word-break: break-word; }
+.brand-link .brand-image { float: left; line-height: .8; max-height: 33px; width: auto; }
+@media (max-width: 767px) { .content-header .text-right { text-align: left !important; margin-top: .5rem; } }
