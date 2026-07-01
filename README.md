@@ -29,11 +29,11 @@ Implemented skeleton:
 5. Setup form fields:
    - address
    - contact number
-   - country using Select2 AJAX through REST Countries API
+   - country using Select2 AJAX through registered REST Countries API
    - email
    - contact person
    - logo upload
-   - currency using Select2 AJAX through REST Countries API
+   - currency using Select2 AJAX through registered REST Countries API
    - financial year from selectable year list
    - datepicker for financial year dates
 6. AdminLTE dashboard shell
