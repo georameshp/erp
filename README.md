@@ -22,7 +22,8 @@ Implemented skeleton:
    - `app-manifest.json`
    - current financial year folder
    - ledger/inventory/transaction/events/snapshot folders
-   - initial `ledger-summary.json`
+   - initial `ledger-summary.json` with selected chart of accounts groups
+   - default ledger group files and ledger files from selected IFRS-style template
    - initial `inventory-summary.json`
    - setup activity event
    - optional company logo upload to Drive attachments folder
@@ -35,6 +36,8 @@ Implemented skeleton:
    - logo upload
    - currency using Select2 AJAX through registered REST Countries API
    - financial year from selectable year list
+   - chart of accounts template selector
+   - IFRS-style default ledger groups and ledgers
    - datepicker for financial year dates
 6. AdminLTE dashboard shell
 7. Local IndexedDB cache helper
