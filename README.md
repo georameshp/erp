@@ -1,4 +1,4 @@
-# DriveERP AdminLTE Prototype
+# Geo ERP AdminLTE Prototype
 
 Static ERP prototype hosted from GitHub Pages using:
 
@@ -25,9 +25,20 @@ Implemented skeleton:
    - initial `ledger-summary.json`
    - initial `inventory-summary.json`
    - setup activity event
-5. AdminLTE dashboard shell
-6. Local IndexedDB cache helper
-7. Sync-now placeholder that reloads manifest/company data
+   - optional company logo upload to Drive attachments folder
+5. Setup form fields:
+   - address
+   - contact number
+   - country using Select2 AJAX through REST Countries API
+   - email
+   - contact person
+   - logo upload
+   - currency using Select2 AJAX through REST Countries API
+   - financial year from selectable year list
+   - datepicker for financial year dates
+6. AdminLTE dashboard shell
+7. Local IndexedDB cache helper
+8. Sync-now placeholder that reloads manifest/company data
 
 ## Required Google Setup
 
