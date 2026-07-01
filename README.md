@@ -39,6 +39,8 @@ Implemented skeleton:
 6. AdminLTE dashboard shell
 7. Local IndexedDB cache helper
 8. Sync-now placeholder that reloads manifest/company data
+9. Google session restore after page refresh using a locally stored expiring access token
+10. Improved Select2 AJAX search for countries and currencies
 
 ## Required Google Setup
 
