@@ -19,6 +19,10 @@
     return "0.000";
   }
   function hasMoney(bal) { return !!(bal && (amount(bal.debit) || amount(bal.credit))); }
+  function canManageLedgers() {
+    return !window.UserManager || window.UserManager.can("ledgers.manage");
+  }
+
   function hasLedgerEntries(ledger) {
     if (!ledger) return false;
     if (hasMoney(ledger.opening)) return true;
@@ -169,6 +173,9 @@
   }
 
   function renderTables() {
+    const canEdit = canManageLedgers();
+    const actionDisabled = canEdit ? "" : "disabled title='Read only'";
+    $("#btnAddLedgerGroup,#btnAddLedger").prop("disabled", !canEdit);
     const gBody = $("#ledgerGroupTable");
     const lBody = $("#ledgerTable");
     if (!cache.groups.length) {
@@ -180,8 +187,8 @@
           <td>${escapeHtml(g.groupName)}</td>
           <td><span class="badge badge-${g.nature === "credit" ? "warning" : "info"}">${escapeHtml(g.nature || "debit")}</span></td>
           <td>
-            <button class="btn btn-xs btn-outline-primary btn-edit-group" data-code="${escapeAttr(g.groupCode)}"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-xs btn-outline-danger btn-delete-group" data-code="${escapeAttr(g.groupCode)}"><i class="fas fa-trash"></i></button>
+            <button class="btn btn-xs btn-outline-primary btn-edit-group" data-code="${escapeAttr(g.groupCode)}" ${actionDisabled}><i class="fas fa-edit"></i></button>
+            <button class="btn btn-xs btn-outline-danger btn-delete-group" data-code="${escapeAttr(g.groupCode)}" ${actionDisabled}><i class="fas fa-trash"></i></button>
           </td>
         </tr>`).join(""));
     }
@@ -197,8 +204,8 @@
           <td>${escapeHtml(balanceText(l.opening))}</td>
           <td>${escapeHtml(balanceText(l.closing))}</td>
           <td>
-            <button class="btn btn-xs btn-outline-primary btn-edit-ledger" data-code="${escapeAttr(l.ledgerCode)}"><i class="fas fa-edit"></i></button>
-            <button class="btn btn-xs btn-outline-danger btn-delete-ledger" data-code="${escapeAttr(l.ledgerCode)}"><i class="fas fa-trash"></i></button>
+            <button class="btn btn-xs btn-outline-primary btn-edit-ledger" data-code="${escapeAttr(l.ledgerCode)}" ${actionDisabled}><i class="fas fa-edit"></i></button>
+            <button class="btn btn-xs btn-outline-danger btn-delete-ledger" data-code="${escapeAttr(l.ledgerCode)}" ${actionDisabled}><i class="fas fa-trash"></i></button>
           </td>
         </tr>`).join(""));
     }
@@ -295,6 +302,7 @@
   }
 
   async function saveGroupFromForm() {
+    if (!canManageLedgers()) throw new Error("You are not allowed to manage ledger groups.");
     const state = await getState();
     const manifest = state.manifest;
     manifest.fileIds = manifest.fileIds || {};
@@ -357,6 +365,7 @@
   }
 
   async function saveLedgerFromForm() {
+    if (!canManageLedgers()) throw new Error("You are not allowed to manage ledgers.");
     const state = await getState();
     const manifest = state.manifest;
     manifest.fileIds = manifest.fileIds || {};
@@ -507,6 +516,7 @@
   }
 
   async function deleteLedger(ledgerCode) {
+    if (!canManageLedgers()) throw new Error("You are not allowed to delete ledgers.");
     const ledger = cache.ledgers.find(l => l.ledgerCode === ledgerCode);
     if (!ledger) return;
     const latest = await window.GoogleDrive.readJsonFile(ledger._fileId);
@@ -525,6 +535,7 @@
   }
 
   async function deleteGroup(groupCode) {
+    if (!canManageLedgers()) throw new Error("You are not allowed to delete ledger groups.");
     const group = cache.groups.find(g => g.groupCode === groupCode);
     if (!group) return;
     const childGroups = cache.groups.filter(g => g.parentCode === groupCode);
