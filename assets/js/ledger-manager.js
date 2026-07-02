@@ -43,31 +43,76 @@
     try { return await window.GoogleDrive.readJsonFile(fileId); } catch (e) { console.warn("Unable to read file", fileId, e); return null; }
   }
 
+  async function discoverLedgerFileIds(manifest) {
+    const groupFileIds = { ...(((manifest.fileIds || {}).ledgerGroups) || {}) };
+    const ledgerFileIds = { ...(((manifest.fileIds || {}).ledgers) || {}) };
+
+    // Backward compatibility / repair: if manifest does not contain file IDs,
+    // discover JSON files from the Drive folders.
+    if (!Object.keys(groupFileIds).length && manifest.folderIds && manifest.folderIds.fy && manifest.folderIds.fy.ledgerGroups) {
+      const files = await window.GoogleDrive.listChildren(manifest.folderIds.fy.ledgerGroups);
+      files.filter(f => f.mimeType === "application/json" || String(f.name).endsWith(".json")).forEach(f => {
+        const code = (f.appProperties && f.appProperties.groupCode) || String(f.name).replace(/\.json$/i, "");
+        groupFileIds[code] = f.id;
+      });
+    }
+
+    if (!Object.keys(ledgerFileIds).length && manifest.folderIds && manifest.folderIds.fy && manifest.folderIds.fy.ledgerFiles) {
+      const files = await window.GoogleDrive.listChildren(manifest.folderIds.fy.ledgerFiles);
+      files.filter(f => f.mimeType === "application/json" || String(f.name).endsWith(".json")).forEach(f => {
+        const code = (f.appProperties && f.appProperties.ledgerCode) || String(f.name).replace(/\.json$/i, "");
+        ledgerFileIds[code] = f.id;
+      });
+    }
+
+    return { groupFileIds, ledgerFileIds };
+  }
+
   async function loadData() {
-    const state = await getState();
-    const manifest = state.manifest;
-    const groupFileIds = (manifest.fileIds && manifest.fileIds.ledgerGroups) || {};
-    const ledgerFileIds = (manifest.fileIds && manifest.fileIds.ledgers) || {};
+    const gBody = $("#ledgerGroupTable");
+    const lBody = $("#ledgerTable");
+    gBody.html('<tr><td colspan="4" class="text-muted p-3"><i class="fas fa-spinner fa-spin mr-1"></i>Loading ledger groups...</td></tr>');
+    lBody.html('<tr><td colspan="6" class="text-muted p-3"><i class="fas fa-spinner fa-spin mr-1"></i>Loading ledgers...</td></tr>');
 
-    const groupRows = [];
-    const ledgerRows = [];
-    for (const [code, fileId] of Object.entries(groupFileIds)) {
-      const doc = await readJsonSafe(fileId);
-      if (doc && !doc.isDeleted) groupRows.push({ ...doc, _fileId: fileId });
-    }
-    for (const [code, fileId] of Object.entries(ledgerFileIds)) {
-      const doc = await readJsonSafe(fileId);
-      if (doc && !doc.isDeleted) ledgerRows.push({ ...doc, _fileId: fileId });
-    }
+    try {
+      const state = await getState();
+      const manifest = state.manifest || {};
+      const discovered = await discoverLedgerFileIds(manifest);
+      const groupFileIds = discovered.groupFileIds;
+      const ledgerFileIds = discovered.ledgerFileIds;
 
-    cache.groups = groupRows.sort((a, b) => String(a.groupName).localeCompare(String(b.groupName)));
-    cache.ledgers = ledgerRows.sort((a, b) => String(a.ledgerName).localeCompare(String(b.ledgerName)));
-    cache.groupFiles = groupFileIds;
-    cache.ledgerFiles = ledgerFileIds;
-    renderTables();
-    fillGroupSelects();
-    $("#statLedgers").text(cache.ledgers.length);
-    return cache;
+      const groupPairs = await Promise.all(Object.entries(groupFileIds).map(async ([code, fileId]) => {
+        const doc = await readJsonSafe(fileId);
+        return doc && !doc.isDeleted ? { ...doc, _fileId: fileId } : null;
+      }));
+
+      const ledgerPairs = await Promise.all(Object.entries(ledgerFileIds).map(async ([code, fileId]) => {
+        const doc = await readJsonSafe(fileId);
+        return doc && !doc.isDeleted ? { ...doc, _fileId: fileId } : null;
+      }));
+
+      cache.groups = groupPairs.filter(Boolean).sort((a, b) => String(a.groupName).localeCompare(String(b.groupName)));
+      cache.ledgers = ledgerPairs.filter(Boolean).sort((a, b) => String(a.ledgerName).localeCompare(String(b.ledgerName)));
+      cache.groupFiles = groupFileIds;
+      cache.ledgerFiles = ledgerFileIds;
+
+      // Keep manifest in local cache repaired so future creates/updates can use it.
+      manifest.fileIds = manifest.fileIds || {};
+      manifest.fileIds.ledgerGroups = { ...groupFileIds };
+      manifest.fileIds.ledgers = { ...ledgerFileIds };
+      state.manifest = manifest;
+      await saveState(state);
+
+      renderTables();
+      fillGroupSelects();
+      $("#statLedgers").text(cache.ledgers.length);
+      return cache;
+    } catch (err) {
+      console.error("Ledger load failed", err);
+      gBody.html('<tr><td colspan="4" class="text-danger p-3">Unable to load ledger groups: ' + escapeHtml(err.message || err) + '</td></tr>');
+      lBody.html('<tr><td colspan="6" class="text-danger p-3">Unable to load ledgers: ' + escapeHtml(err.message || err) + '</td></tr>');
+      throw err;
+    }
   }
 
   function groupName(code) {
@@ -462,4 +507,3 @@
 
   bindEvents();
 })();
-
