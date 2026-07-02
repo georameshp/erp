@@ -68,6 +68,48 @@
     return { groupFileIds, ledgerFileIds };
   }
 
+  async function loadJsonDataFromDrive(manifest) {
+    const discovered = await discoverLedgerFileIds(manifest);
+    const groupFileIds = discovered.groupFileIds;
+    const ledgerFileIds = discovered.ledgerFileIds;
+
+    const groupPairs = await Promise.all(Object.entries(groupFileIds).map(async ([code, fileId]) => {
+      const doc = await readJsonSafe(fileId);
+      return doc && !doc.isDeleted ? { ...doc, _fileId: fileId } : null;
+    }));
+
+    const ledgerPairs = await Promise.all(Object.entries(ledgerFileIds).map(async ([code, fileId]) => {
+      const doc = await readJsonSafe(fileId);
+      return doc && !doc.isDeleted ? { ...doc, _fileId: fileId } : null;
+    }));
+
+    return {
+      groupFileIds,
+      ledgerFileIds,
+      groups: groupPairs.filter(Boolean).sort((a, b) => String(a.groupName).localeCompare(String(b.groupName))),
+      ledgers: ledgerPairs.filter(Boolean).sort((a, b) => String(a.ledgerName).localeCompare(String(b.ledgerName)))
+    };
+  }
+
+  function applyLedgerCache(data, groupFileIds, ledgerFileIds) {
+    cache.groups = (data.groups || []).map(g => ({ ...g, _fileId: g._fileId || groupFileIds[g.groupCode] }));
+    cache.ledgers = (data.ledgers || []).map(l => ({ ...l, _fileId: l._fileId || ledgerFileIds[l.ledgerCode] }));
+    cache.groupFiles = groupFileIds;
+    cache.ledgerFiles = ledgerFileIds;
+    renderTables();
+    fillGroupSelects();
+    $("#statLedgers").text(cache.ledgers.length);
+  }
+
+  async function reconcileJsonToSqliteInBackground(manifest) {
+    try {
+      const jsonData = await loadJsonDataFromDrive(manifest);
+      await window.SQLiteManager.syncLedgersFromJson(jsonData.groups, jsonData.ledgers, true);
+    } catch (e) {
+      console.warn("Background JSON→SQLite reconciliation failed. SQLite/JSON fallback still available.", e.message || e);
+    }
+  }
+
   async function loadData() {
     const gBody = $("#ledgerGroupTable");
     const lBody = $("#ledgerTable");
@@ -81,31 +123,37 @@
       const groupFileIds = discovered.groupFileIds;
       const ledgerFileIds = discovered.ledgerFileIds;
 
-      const groupPairs = await Promise.all(Object.entries(groupFileIds).map(async ([code, fileId]) => {
-        const doc = await readJsonSafe(fileId);
-        return doc && !doc.isDeleted ? { ...doc, _fileId: fileId } : null;
-      }));
+      // Primary path: SQLite. It is much faster after the first sync.
+      if (window.SQLiteManager && window.SQLiteManager.isAvailable()) {
+        try {
+          await window.SQLiteManager.open();
+          const sqliteData = await window.SQLiteManager.getLedgerData();
+          if ((sqliteData.groups && sqliteData.groups.length) || (sqliteData.ledgers && sqliteData.ledgers.length)) {
+            applyLedgerCache(sqliteData, groupFileIds, ledgerFileIds);
+            // JSON is still the source/audit fallback. Reconcile in background for concurrent-user changes.
+            setTimeout(() => reconcileJsonToSqliteInBackground(manifest), 50);
+            return cache;
+          }
+        } catch (sqliteErr) {
+          console.warn("SQLite primary load failed. Falling back to JSON.", sqliteErr.message || sqliteErr);
+        }
+      }
 
-      const ledgerPairs = await Promise.all(Object.entries(ledgerFileIds).map(async ([code, fileId]) => {
-        const doc = await readJsonSafe(fileId);
-        return doc && !doc.isDeleted ? { ...doc, _fileId: fileId } : null;
-      }));
+      // Fallback and first-run path: JSON files from Google Drive.
+      const jsonData = await loadJsonDataFromDrive(manifest);
+      applyLedgerCache(jsonData, jsonData.groupFileIds, jsonData.ledgerFileIds);
 
-      cache.groups = groupPairs.filter(Boolean).sort((a, b) => String(a.groupName).localeCompare(String(b.groupName)));
-      cache.ledgers = ledgerPairs.filter(Boolean).sort((a, b) => String(a.ledgerName).localeCompare(String(b.ledgerName)));
-      cache.groupFiles = groupFileIds;
-      cache.ledgerFiles = ledgerFileIds;
-
-      // Keep manifest in local cache repaired so future creates/updates can use it.
+      // Repair local manifest cache.
       manifest.fileIds = manifest.fileIds || {};
-      manifest.fileIds.ledgerGroups = { ...groupFileIds };
-      manifest.fileIds.ledgers = { ...ledgerFileIds };
+      manifest.fileIds.ledgerGroups = { ...jsonData.groupFileIds };
+      manifest.fileIds.ledgers = { ...jsonData.ledgerFileIds };
       state.manifest = manifest;
       await saveState(state);
 
-      renderTables();
-      fillGroupSelects();
-      $("#statLedgers").text(cache.ledgers.length);
+      // Build/refresh SQLite from JSON for next fast load.
+      if (window.SQLiteManager && window.SQLiteManager.isAvailable()) {
+        await window.SQLiteManager.syncLedgersFromJson(jsonData.groups, jsonData.ledgers, true);
+      }
       return cache;
     } catch (err) {
       console.error("Ledger load failed", err);
@@ -215,6 +263,23 @@
     await updateManifest(state, manifest);
   }
 
+  async function syncSqliteAfterJson(type, doc, deleted) {
+    if (!window.SQLiteManager || !window.SQLiteManager.isAvailable()) return;
+    try {
+      if (type === "group") {
+        if (deleted) await window.SQLiteManager.markGroupDeleted(doc.groupCode);
+        else await window.SQLiteManager.upsertLedgerGroup(doc);
+      }
+      if (type === "ledger") {
+        if (deleted) await window.SQLiteManager.markLedgerDeleted(doc.ledgerCode);
+        else await window.SQLiteManager.upsertLedger(doc);
+      }
+    } catch (e) {
+      // JSON has already been saved. SQLite is primary for speed, but JSON remains fallback/source.
+      console.warn("SQLite update failed after JSON save. JSON fallback remains valid:", e.message || e);
+    }
+  }
+
   async function updateLedgerSummary(mutator) {
     const state = await getState();
     const manifest = state.manifest;
@@ -273,6 +338,7 @@
       await updateManifest(state, manifest);
       await updateLedgerSummary(summary => summary.groups.push({ groupCode: code, groupName: name, parentCode, nature, openingDebit: 0, openingCredit: 0, closingDebit: 0, closingCredit: 0, ledgerCount: 0 }));
       await addEvent("ledger_group_created", "ledger_group", code, null, doc, "Created ledger group " + name);
+      await syncSqliteAfterJson("group", doc, false);
     } else {
       const fileId = manifest.fileIds.ledgerGroups[code];
       if (!fileId) throw new Error("Ledger group file not found.");
@@ -284,6 +350,7 @@
         if (row) { row.groupName = name; row.parentCode = parentCode; row.nature = nature; }
       });
       await addEvent("ledger_group_updated", "ledger_group", code, before, after, "Updated ledger group " + name);
+      await syncSqliteAfterJson("group", after, false);
     }
     $("#ledgerGroupModal").modal("hide");
     await loadData();
@@ -340,6 +407,7 @@
       await addLedgerToGroup(groupCode, { ledgerCode: code, ledgerName: name, openingDebit: opening.debit, openingCredit: opening.credit, closingDebit: opening.debit, closingCredit: opening.credit });
       await updateLedgerSummary(summary => adjustSummaryForLedger(summary, groupCode, +1, opening, opening));
       await addEvent("ledger_created", "ledger", code, null, doc, "Created ledger " + name);
+      await syncSqliteAfterJson("ledger", doc, false);
     } else {
       const fileId = manifest.fileIds.ledgers[code];
       if (!fileId) throw new Error("Ledger file not found.");
@@ -356,6 +424,7 @@
         await updateLedgerSummary(summary => adjustSummaryBalanceChange(summary, groupCode, before.opening, before.closing, opening, opening));
       }
       await addEvent("ledger_updated", "ledger", code, before, after, "Updated ledger " + name);
+      await syncSqliteAfterJson("ledger", after, false);
     }
     $("#ledgerModal").modal("hide");
     await loadData();
@@ -451,6 +520,7 @@
     await removeLedgerFromGroup(latest.groupCode, latest.ledgerCode);
     await updateLedgerSummary(summary => adjustSummaryForLedger(summary, latest.groupCode, -1, latest.opening, latest.closing));
     await addEvent("ledger_deleted", "ledger", latest.ledgerCode, latest, after, "Deleted ledger " + latest.ledgerName);
+    await syncSqliteAfterJson("ledger", after, true);
     await loadData();
   }
 
@@ -469,6 +539,7 @@
     await window.GoogleDrive.updateJsonFile(group._fileId, after);
     await updateLedgerSummary(summary => { summary.groups = (summary.groups || []).filter(g => g.groupCode !== groupCode); });
     await addEvent("ledger_group_deleted", "ledger_group", groupCode, latest, after, "Deleted ledger group " + latest.groupName);
+    await syncSqliteAfterJson("group", after, true);
     await loadData();
   }
 
