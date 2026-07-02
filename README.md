@@ -44,6 +44,17 @@ Implemented skeleton:
 8. Sync-now placeholder that reloads manifest/company data
 9. Google session restore after page refresh using a locally stored expiring access token
 10. Improved Select2 AJAX search for countries and currencies
+11. Ledger Group CRUD:
+   - create/edit/delete ledger groups
+   - group code locked after creation
+   - group delete blocked if child groups or ledgers exist
+12. Ledger CRUD:
+   - create/edit/delete ledgers
+   - ledger code locked after creation
+   - opening debit/credit support
+   - ledger delete blocked if opening balance, transactions, or summaries exist
+   - group files and ledger-summary.json updated automatically
+   - activity events created for create/edit/delete
 
 ## Required Google Setup
 
