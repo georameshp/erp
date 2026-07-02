@@ -123,6 +123,64 @@
     return { template, groupFiles, ledgerFiles, ledgerSummary, groupDocs, ledgerDocs };
   }
 
+
+  function userFileName(userId) {
+    return userId + ".json";
+  }
+
+  async function createSuperAdminUser(setup, folderIds, companyId, now) {
+    const googleUser = window.GoogleAuth.getCurrentUser() || {};
+    const username = String(setup.superAdmin && setup.superAdmin.username || "admin").trim().toLowerCase();
+    const password = setup.superAdmin && setup.superAdmin.password;
+    if (!password) throw new Error("Super admin password is required.");
+    const userId = "USR-SUPER-ADMIN";
+    const passwordHash = await window.CryptoManager.hashPassword(password);
+    const user = {
+      schemaVersion: 1,
+      userId,
+      username,
+      displayName: (setup.superAdmin && setup.superAdmin.displayName) || "Super Admin",
+      email: (setup.superAdmin && setup.superAdmin.email) || googleUser.email || "",
+      googleEmail: googleUser.email || (setup.superAdmin && setup.superAdmin.email) || "",
+      driveAccessRole: "owner",
+      role: "super_admin",
+      permissions: ["*"],
+      employeeId: null,
+      employeeLinkStatus: "not_linked",
+      status: "active",
+      passwordHash,
+      passwordUpdatedAt: now,
+      createdAt: now,
+      createdBy: googleUser.email || username,
+      updatedAt: now,
+      updatedBy: googleUser.email || username,
+      revision: 1,
+      isDeleted: false
+    };
+    const userFile = await window.GoogleDrive.createJsonFile(userFileName(userId), folderIds.users, user, {
+      appId: window.ERP_CONFIG.APP_ID,
+      type: "erp-user",
+      companyId,
+      userId,
+      username,
+      role: "super_admin"
+    });
+    const summary = {
+      schemaVersion: 1,
+      companyId,
+      users: [{ userId, username, displayName: user.displayName, email: user.email, googleEmail: user.googleEmail, role: user.role, employeeId: null, status: "active", driveAccessRole: "owner" }],
+      roles: ["super_admin", "admin", "accountant", "inventory_manager", "hr_payroll", "viewer"],
+      updatedAt: now,
+      revision: 1
+    };
+    const summaryFile = await window.GoogleDrive.createJsonFile("users-summary.json", folderIds.users, summary, {
+      appId: window.ERP_CONFIG.APP_ID,
+      type: "users-summary",
+      companyId
+    });
+    return { user, userFile, summary, summaryFile };
+  }
+
   async function createInitialDriveStructure(setup) {
     const user = window.GoogleAuth.getCurrentUser();
     const now = new Date().toISOString();
@@ -188,6 +246,8 @@
         { appId: window.ERP_CONFIG.APP_ID, type: "company-logo", companyId }
       );
     }
+
+    const superAdminResult = await createSuperAdminUser(setup, folderIds, companyId, now);
 
     const company = {
       schemaVersion: 1,
@@ -256,6 +316,8 @@
     manifest.fileIds.financialYear = fyFile.id;
     manifest.fileIds.ledgerGroups = chartResult.groupFiles;
     manifest.fileIds.ledgers = chartResult.ledgerFiles;
+    manifest.fileIds.users = { [superAdminResult.user.userId]: superAdminResult.userFile.id };
+    manifest.fileIds.usersSummary = superAdminResult.summaryFile.id;
 
     // Initial derived files
     manifest.fileIds.ledgerSummary = (await window.GoogleDrive.createJsonFile("ledger-summary.json", folderIds.fy.ledgers, {
@@ -304,7 +366,7 @@
       }
     }
 
-    return { root, company, manifest, financialYear };
+    return { root, company, manifest, financialYear, superAdminUser: superAdminResult.user };
   }
 
   async function loadExistingDriveStructure(rootFolder) {
