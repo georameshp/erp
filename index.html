@@ -143,6 +143,34 @@
                   <input id="taxRate" type="number" step="0.01" class="form-control" value="5">
                 </div>
               </div>
+
+              <hr>
+              <h5 class="mb-3"><i class="fas fa-user-shield mr-2"></i>Super Admin Account</h5>
+              <div class="form-row">
+                <div class="form-group col-md-4">
+                  <label>Username <span class="text-danger">*</span></label>
+                  <input id="superAdminUsername" class="form-control" value="admin" required>
+                </div>
+                <div class="form-group col-md-4">
+                  <label>ERP Email</label>
+                  <input id="superAdminEmail" type="email" class="form-control" placeholder="admin@example.com">
+                </div>
+                <div class="form-group col-md-4">
+                  <label>Display Name</label>
+                  <input id="superAdminName" class="form-control" value="Super Admin">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  <label>Super Admin Password <span class="text-danger">*</span></label>
+                  <input id="superAdminPassword" type="password" class="form-control" required minlength="6">
+                </div>
+                <div class="form-group col-md-6">
+                  <label>Confirm Password <span class="text-danger">*</span></label>
+                  <input id="superAdminPasswordConfirm" type="password" class="form-control" required minlength="6">
+                </div>
+              </div>
+              <div class="alert alert-warning small">Passwords are stored as PBKDF2 encoded hashes with salt, not plain text.</div>
             </div>
             <div class="card-footer text-right">
               <button class="btn btn-primary" type="submit">
@@ -152,6 +180,60 @@
           </form>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- SHARED COMPANY FOLDER OPEN SCREEN -->
+<section id="sharedFolderScreen" class="content-wrapper-full d-none">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-7">
+        <div class="card card-outline card-info shadow-sm">
+          <div class="card-header">
+            <h3 class="card-title"><i class="fab fa-google-drive mr-2"></i>Open Shared Company Folder</h3>
+          </div>
+          <form id="sharedFolderForm">
+            <div class="card-body">
+              <div class="alert alert-info">
+                If this company was shared with your Gmail, paste the shared <b>ERP-App-Data</b> Google Drive folder link or folder ID below.
+              </div>
+              <div class="form-group">
+                <label>Shared Google Drive Folder Link / ID</label>
+                <input id="sharedFolderInput" class="form-control" required placeholder="https://drive.google.com/drive/folders/... or folder ID">
+                <small class="text-muted">The folder must contain <code>company.json</code> and <code>app-manifest.json</code>.</small>
+              </div>
+              <div class="alert alert-warning small mb-0">
+                Invited users normally have read-only Drive access. ERP role permissions decide which pages are visible.
+              </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between">
+              <button id="btnCreateNewCompany" type="button" class="btn btn-outline-primary">
+                <i class="fas fa-folder-plus mr-1"></i> Create New Company
+              </button>
+              <button type="submit" class="btn btn-info">
+                <i class="fas fa-folder-open mr-1"></i> Open Shared Company
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ERP USER LOGIN SCREEN -->
+<section id="erpLoginScreen" class="login-page bg-light d-none">
+  <div class="login-box">
+    <div class="card card-outline card-success shadow-sm">
+      <div class="card-header text-center"><h1 class="h4 mb-0"><b>Geo ERP</b> Login</h1></div>
+      <form id="erpLoginForm" class="card-body">
+        <p class="login-box-msg">Enter your ERP username and password.</p>
+        <div class="form-group"><input id="erpUsername" class="form-control" placeholder="Username" required></div>
+        <div class="form-group"><input id="erpPassword" type="password" class="form-control" placeholder="Password" required></div>
+        <button class="btn btn-success btn-block" type="submit"><i class="fas fa-sign-in-alt mr-1"></i> Login to ERP</button>
+        <button id="btnBackGoogleLogin" class="btn btn-link btn-block" type="button">Use another Google account</button>
+      </form>
     </div>
   </div>
 </section>
@@ -191,6 +273,7 @@
           <li class="nav-item"><a href="#inventory" class="nav-link nav-route"><i class="nav-icon fas fa-boxes"></i><p>Inventory</p></a></li>
           <li class="nav-header">SYSTEM</li>
           <li class="nav-item"><a href="#activity" class="nav-link nav-route"><i class="nav-icon fas fa-history"></i><p>Activity Log</p></a></li>
+          <li class="nav-item"><a href="#users" class="nav-link nav-route"><i class="nav-icon fas fa-users-cog"></i><p>Users & Roles</p></a></li>
           <li class="nav-item"><a href="#settings" class="nav-link nav-route"><i class="nav-icon fas fa-cog"></i><p>Settings</p></a></li>
         </ul>
       </nav>
@@ -283,6 +366,22 @@
           </div>
         </div>
 
+        <div id="view-users" class="app-view d-none">
+          <div class="card card-outline card-primary">
+            <div class="card-header">
+              <h3 class="card-title">Users, Roles & Employee Links</h3>
+              <div class="card-tools"><button id="btnAddUser" class="btn btn-sm btn-primary"><i class="fas fa-user-plus mr-1"></i>User</button></div>
+            </div>
+            <div class="card-body table-responsive p-0">
+              <table class="table table-sm table-striped mb-0">
+                <thead><tr><th>Username</th><th>Name</th><th>Google Account</th><th>Role</th><th>Employee</th><th>Status</th><th style="width:120px">Action</th></tr></thead>
+                <tbody id="userTable"><tr><td colspan="7" class="text-muted p-3">Loading...</td></tr></tbody>
+              </table>
+            </div>
+            <div class="card-footer small text-muted">Employees module will later track salary, timesheets, payroll, leaves and HR records.</div>
+          </div>
+        </div>
+
         <div id="view-settings" class="app-view d-none">
           <div class="card"><div class="card-header"><h3 class="card-title">Settings</h3></div><div class="card-body"><pre id="driveStateJson" class="small"></pre></div></div>
         </div>
@@ -295,6 +394,40 @@
   </footer>
 </div>
 
+
+<!-- USER MODAL -->
+<div class="modal fade" id="userModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <form id="userForm" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="userModalTitle">User Account</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="userMode" value="create">
+        <input type="hidden" id="userId">
+        <div class="form-row">
+          <div class="form-group col-md-4"><label>Username <span class="text-danger">*</span></label><input id="userUsername" class="form-control" required></div>
+          <div class="form-group col-md-4"><label>Display Name</label><input id="userDisplayName" class="form-control"></div>
+          <div class="form-group col-md-4"><label>Google Gmail <span class="text-danger">*</span></label><input id="userGoogleEmail" type="email" class="form-control" placeholder="user@gmail.com" required><small class="text-muted">ERP login is allowed only from this Google account.</small></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-4"><label>Role <span class="text-danger">*</span></label><select id="userRole" class="form-control"><option value="super_admin">Super Admin</option><option value="admin">Admin</option><option value="accountant">Accountant</option><option value="inventory_manager">Inventory Manager</option><option value="hr_payroll">HR / Payroll</option><option value="viewer">Viewer</option></select></div>
+          <div class="form-group col-md-4"><label>Employee Link</label><select id="userEmployeeId" class="form-control"><option value="">Not linked</option></select><small class="text-muted">Employee database will be added next.</small></div>
+          <div class="form-group col-md-4"><label>Status</label><select id="userStatus" class="form-control"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-6"><label>Password <span id="passwordRequiredMark" class="text-danger">*</span></label><input id="userPassword" type="password" class="form-control" minlength="6"><small class="text-muted">Leave blank while editing to keep current password.</small></div>
+          <div class="form-group col-md-6"><label>Confirm Password</label><input id="userPasswordConfirm" type="password" class="form-control" minlength="6"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save User</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- LEDGER GROUP MODAL -->
 <div class="modal fade" id="ledgerGroupModal" tabindex="-1" role="dialog" aria-hidden="true">
@@ -390,14 +523,16 @@
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-<script src="assets/js/config.js?v=20260701-14"></script>
-<script src="assets/js/local-db.js?v=20260701-14"></script>
-<script src="assets/js/google-auth.js?v=20260701-14"></script>
-<script src="assets/js/google-drive.js?v=20260701-14"></script>
-<script src="assets/js/chart-templates.js?v=20260701-14"></script>
-<script src="assets/js/sync-engine.js?v=20260701-14"></script>
-<script src="assets/js/sqlite-manager.js?v=20260701-14"></script>
-<script src="assets/js/ledger-manager.js?v=20260701-14"></script>
-<script src="assets/js/app.js?v=20260701-14"></script>
+<script src="assets/js/config.js?v=20260701-19"></script>
+<script src="assets/js/local-db.js?v=20260701-19"></script>
+<script src="assets/js/google-auth.js?v=20260701-19"></script>
+<script src="assets/js/google-drive.js?v=20260701-19"></script>
+<script src="assets/js/chart-templates.js?v=20260701-19"></script>
+<script src="assets/js/crypto-manager.js?v=20260701-19"></script>
+<script src="assets/js/sync-engine.js?v=20260701-19"></script>
+<script src="assets/js/sqlite-manager.js?v=20260701-19"></script>
+<script src="assets/js/user-manager.js?v=20260701-19"></script>
+<script src="assets/js/ledger-manager.js?v=20260701-19"></script>
+<script src="assets/js/app.js?v=20260701-19"></script>
 </body>
 </html>
