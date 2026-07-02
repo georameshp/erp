@@ -475,6 +475,12 @@ $(function () {
       settings: "Settings"
     };
     $("#pageTitle").text(titles[route] || "Dashboard");
+    if (route === "ledgers" && window.LedgerManager) {
+      window.LedgerManager.load().catch(function (err) {
+        console.error(err);
+        alert(err.message || "Unable to load ledgers.");
+      });
+    }
   }
 
   async function bootstrapApp() {
