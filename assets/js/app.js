@@ -3,6 +3,8 @@ $(function () {
   const $login = $("#loginScreen");
   const $setup = $("#setupScreen");
   const $app = $("#appShell");
+  const $erpLogin = $("#erpLoginScreen");
+  const $sharedFolder = $("#sharedFolderScreen");
   let setupPluginsInitialized = false;
 
   function showLoading(text) {
@@ -18,8 +20,12 @@ $(function () {
     $login.addClass("d-none");
     $setup.addClass("d-none");
     $app.addClass("d-none");
+    $erpLogin.addClass("d-none");
+    $sharedFolder.addClass("d-none");
     if (name === "login") $login.removeClass("d-none");
     if (name === "setup") $setup.removeClass("d-none");
+    if (name === "sharedFolder") $sharedFolder.removeClass("d-none");
+    if (name === "erpLogin") $erpLogin.removeClass("d-none");
     if (name === "app") $app.removeClass("d-none");
   }
 
@@ -355,7 +361,8 @@ $(function () {
 
   function renderState(state) {
     const user = window.GoogleAuth.getCurrentUser();
-    $("#userEmail").text(user && user.email ? user.email : "User");
+    const appUser = window.UserManager ? window.UserManager.getSession() : null;
+    $("#userEmail").text(appUser ? (appUser.displayName || appUser.username) + " (" + appUser.role + ")" : (user && user.email ? user.email : "User"));
     $("#companyJson").text(JSON.stringify(state.company || {}, null, 2));
     $("#driveStateJson").text(JSON.stringify(state, null, 2));
     const manifest = state.manifest || {};
@@ -364,20 +371,48 @@ $(function () {
     $("#syncBadge").removeClass("badge-secondary badge-danger").addClass("badge-success").text("Synced");
   }
 
+
+  function extractDriveFolderId(input) {
+    const value = String(input || "").trim();
+    if (!value) return "";
+    let match = value.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+    match = value.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+    return value;
+  }
+
+  async function continueAfterDriveState(state) {
+    renderState(state);
+    if (window.UserManager && !window.UserManager.hasSession()) {
+      try {
+        const users = await window.UserManager.loadUsers();
+        if (users.length > 0) {
+          showScreen("erpLogin");
+          return;
+        }
+        alert("No ERP user accounts found for this company. Opening app for migration. Please create a Super Admin user from Users & Roles.");
+        showScreen("app");
+        routeTo("#users");
+        return;
+      } catch (e) {
+        showScreen("erpLogin");
+        return;
+      }
+    }
+    showScreen("app");
+    routeTo(location.hash || "#dashboard");
+  }
+
   async function startAfterLogin() {
     showLoading("Checking Google Drive for ERP data...");
     const state = await window.SyncEngine.openOrSetup();
     hideLoading();
     if (!state) {
-      showScreen("setup");
-      // Initialize Select2/datepickers only after the setup screen is visible.
-      // Select2 can render empty/incorrect dropdowns when initialized inside hidden containers.
-      setTimeout(initSetupPlugins, 0);
+      showScreen("sharedFolder");
       return;
     }
-    renderState(state);
-    showScreen("app");
-    routeTo(location.hash || "#dashboard");
+    await continueAfterDriveState(state);
   }
 
   $("#btnGoogleLogin").on("click", async function () {
@@ -394,6 +429,34 @@ $(function () {
       hideLoading();
       console.error(err);
       alert(err.message || "Google login failed.");
+    }
+  });
+
+  $("#btnCreateNewCompany").on("click", function () {
+    showScreen("setup");
+    setTimeout(initSetupPlugins, 0);
+  });
+
+  $("#sharedFolderForm").on("submit", async function (e) {
+    e.preventDefault();
+    try {
+      const folderId = extractDriveFolderId($("#sharedFolderInput").val());
+      if (!folderId) return alert("Please enter a shared folder link or ID.");
+      showLoading("Opening shared company folder...");
+      const folder = await window.GoogleDrive.getFileMetadata(folderId);
+      if (!folder || folder.mimeType !== "application/vnd.google-apps.folder") {
+        throw new Error("The provided ID is not a Google Drive folder.");
+      }
+      const state = await window.SyncEngine.loadExistingDriveStructure({ id: folder.id, name: folder.name, modifiedTime: folder.modifiedTime, sharedOpen: true });
+      state.sharedFolder = { id: folder.id, name: folder.name, openedAt: new Date().toISOString(), mode: "shared" };
+      state.driveAccessRole = "reader";
+      await window.LocalDB.setKV("driveState", state);
+      hideLoading();
+      await continueAfterDriveState(state);
+    } catch (err) {
+      hideLoading();
+      console.error(err);
+      alert(err.message || "Unable to open shared company folder.");
     }
   });
 
@@ -416,12 +479,23 @@ $(function () {
         endDate: dateToIso($("#fyEnd").val())
       },
       chartTemplateId: $("#chartTemplate").val(),
-      chartTemplate: window.ChartTemplates ? window.ChartTemplates.getTemplate($("#chartTemplate").val()) : null
+      chartTemplate: window.ChartTemplates ? window.ChartTemplates.getTemplate($("#chartTemplate").val()) : null,
+      superAdmin: {
+        username: $("#superAdminUsername").val().trim(),
+        email: $("#superAdminEmail").val().trim(),
+        displayName: $("#superAdminName").val().trim(),
+        password: $("#superAdminPassword").val()
+      }
     };
+    if ($("#superAdminPassword").val() !== $("#superAdminPasswordConfirm").val()) {
+      alert("Super Admin passwords do not match.");
+      return;
+    }
     try {
       showLoading("Creating ERP folders and files in Google Drive...");
       const state = await window.SyncEngine.createInitialDriveStructure(setup);
       hideLoading();
+      if (state.superAdminUser && window.UserManager) window.UserManager.saveSession(state.superAdminUser);
       renderState(state);
       showScreen("app");
       routeTo("#dashboard");
@@ -446,8 +520,24 @@ $(function () {
 
   $("#btnSignOut").on("click", function (e) {
     e.preventDefault();
+    if (window.UserManager) window.UserManager.clearSession();
     window.GoogleAuth.signOut();
     showScreen("login");
+  });
+
+  $("#btnBackGoogleLogin").on("click", function () {
+    if (window.UserManager) window.UserManager.clearSession();
+    window.GoogleAuth.signOut();
+    showScreen("login");
+  });
+
+  $(document).on("geoerp:user-login", function () {
+    const statePromise = window.LocalDB.getKV("driveState");
+    statePromise.then(function (state) {
+      renderState(state || {});
+      showScreen("app");
+      routeTo(location.hash || "#dashboard");
+    });
   });
 
   $(document).on("click", ".nav-route", function (e) {
@@ -472,9 +562,19 @@ $(function () {
       transactions: "Transactions",
       inventory: "Inventory",
       activity: "Activity Log",
+      users: "Users & Roles",
       settings: "Settings"
     };
     $("#pageTitle").text(titles[route] || "Dashboard");
+    if (route === "users" && window.UserManager) {
+      if (!window.UserManager.can("users.view")) {
+        alert("You are not allowed to view user accounts.");
+        routeTo("#dashboard");
+        return;
+      }
+      $("#btnAddUser").toggle(window.UserManager.can("users.manage"));
+      window.UserManager.loadUsers().catch(function (err) { console.error(err); alert(err.message || "Unable to load users."); });
+    }
     if (route === "ledgers" && window.LedgerManager) {
       window.LedgerManager.load().catch(function (err) {
         console.error(err);
