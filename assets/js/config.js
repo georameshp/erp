@@ -20,7 +20,8 @@ window.ERP_CONFIG = {
     "email",
     "profile",
     "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/drive.readonly"
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/gmail.send"
   ].join(" "),
 
   DEFAULT_FOLDERS: [
