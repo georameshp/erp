@@ -64,6 +64,9 @@ Implemented skeleton:
    - each ERP user is linked to a Google Gmail account
    - ERP login is allowed only when the current Google account matches the linked Gmail
    - newly created users are shared the ERP-App-Data Drive folder as reader/viewer
+   - after Google authorization, users can choose: register in existing company or create a new company
+   - register option sends a Gmail API email request from the logged-in user's Gmail to the company administrator
+   - request email contains an approval link that opens Geo ERP directly to the user-adding screen
    - invited users can open a shared company by pasting the Google Drive folder link/ID
    - reader users are blocked from manage/write permissions in the UI
    - users can be linked to employees later
