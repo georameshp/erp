@@ -87,9 +87,28 @@
     return await res.json();
   }
 
+  async function updateBinaryFile(fileId, blobOrBytes, mimeType) {
+    const res = await driveFetch(DRIVE_UPLOAD_API + "/files/" + fileId + "?uploadType=media&fields=id,name,mimeType,modifiedTime,version,headRevisionId", {
+      method: "PATCH",
+      headers: { "Content-Type": mimeType || "application/octet-stream" },
+      body: blobOrBytes
+    });
+    return await res.json();
+  }
+
+  async function getFileMetadata(fileId) {
+    const res = await driveFetch(DRIVE_API + "/files/" + fileId + "?fields=id,name,mimeType,modifiedTime,version,headRevisionId,appProperties");
+    return await res.json();
+  }
+
   async function readJsonFile(fileId) {
     const res = await driveFetch(DRIVE_API + "/files/" + fileId + "?alt=media");
     return await res.json();
+  }
+
+  async function readBinaryFile(fileId) {
+    const res = await driveFetch(DRIVE_API + "/files/" + fileId + "?alt=media");
+    return new Uint8Array(await res.arrayBuffer());
   }
 
   async function findChildByName(parentId, name) {
@@ -128,7 +147,10 @@
     createJsonFile,
     uploadFile,
     updateJsonFile,
+    updateBinaryFile,
+    getFileMetadata,
     readJsonFile,
+    readBinaryFile,
     findChildByName,
     listChildren,
     createEventFile
