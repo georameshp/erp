@@ -6,6 +6,7 @@ $(function () {
   const $erpLogin = $("#erpLoginScreen");
   const $sharedFolder = $("#sharedFolderScreen");
   let setupPluginsInitialized = false;
+  let pendingApprovalRequest = null;
 
   function showLoading(text) {
     $("#loadingText").text(text || "Loading...");
@@ -382,6 +383,18 @@ $(function () {
     return value;
   }
 
+  function getApprovalRequestFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("action") !== "approveUserRequest") return null;
+    return {
+      name: params.get("requestName") || "",
+      username: params.get("requestUsername") || "",
+      gmail: params.get("requestGmail") || "",
+      contact: params.get("requestContact") || "",
+      message: params.get("requestMessage") || ""
+    };
+  }
+
   async function continueAfterDriveState(state) {
     renderState(state);
     if (window.UserManager && !window.UserManager.hasSession()) {
@@ -401,6 +414,11 @@ $(function () {
       }
     }
     showScreen("app");
+    if (pendingApprovalRequest && window.UserManager) {
+      routeTo("#users");
+      setTimeout(function () { window.UserManager.openRequest(pendingApprovalRequest); }, 700);
+      return;
+    }
     routeTo(location.hash || "#dashboard");
   }
 
@@ -429,6 +447,40 @@ $(function () {
       hideLoading();
       console.error(err);
       alert(err.message || "Google login failed.");
+    }
+  });
+
+  $("#btnShowRegisterUser").on("click", function () {
+    const googleUser = window.GoogleAuth.getCurrentUser() || {};
+    $("#registerUserRequestForm").removeClass("d-none");
+    $("#sharedFolderForm").removeClass("d-none");
+    if (!$("#requestUserName").val()) $("#requestUserName").val(googleUser.name || "");
+    if (!$("#requestUsername").val()) $("#requestUsername").val((googleUser.email || "").split("@")[0] || "");
+  });
+
+  $("#registerUserRequestForm").on("submit", async function (e) {
+    e.preventDefault();
+    try {
+      const googleUser = window.GoogleAuth.getCurrentUser() || {};
+      const request = {
+        name: $("#requestUserName").val().trim(),
+        username: $("#requestUsername").val().trim(),
+        gmail: googleUser.email || "",
+        contact: $("#requestContact").val().trim(),
+        adminEmail: $("#requestAdminEmail").val().trim(),
+        message: $("#requestMessage").val().trim()
+      };
+      if (!request.gmail) throw new Error("Unable to detect your logged-in Gmail.");
+      if (!request.name || !request.adminEmail) throw new Error("Your name and company administrator email are required.");
+      showLoading("Sending access request email from Gmail...");
+      await window.GmailManager.sendUserRegistrationRequest(request);
+      hideLoading();
+      alert("Request email sent to the company administrator. After approval, they will share the company folder with your Gmail.");
+      $("#sharedFolderForm").removeClass("d-none");
+    } catch (err) {
+      hideLoading();
+      console.error(err);
+      alert(err.message || "Unable to send request email.");
     }
   });
 
@@ -588,6 +640,8 @@ $(function () {
       showScreen("login");
       return;
     }
+
+    pendingApprovalRequest = getApprovalRequestFromUrl();
 
     try {
       showLoading("Restoring Google session...");
