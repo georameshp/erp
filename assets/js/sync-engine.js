@@ -76,10 +76,13 @@
     const groupsByCode = new Map(template.groups.map(g => [g.code, g]));
     const groupFiles = {};
     const ledgerFiles = {};
+    const groupDocs = [];
+    const ledgerDocs = [];
 
     for (const group of template.groups) {
       const ledgers = template.ledgers.filter(l => l.groupCode === group.code);
       const groupDoc = makeGroupFile(group, ledgers, setup, companyId, now, userEmail);
+      groupDocs.push(groupDoc);
       const file = await window.GoogleDrive.createJsonFile(group.code + ".json", folderIds.fy.ledgerGroups, groupDoc, {
         appId: window.ERP_CONFIG.APP_ID,
         type: "ledger-group",
@@ -93,6 +96,7 @@
     for (const ledger of template.ledgers) {
       const group = groupsByCode.get(ledger.groupCode);
       const ledgerDoc = makeLedgerFile(ledger, group, setup, companyId, now, userEmail);
+      ledgerDocs.push(ledgerDoc);
       const file = await window.GoogleDrive.createJsonFile(ledger.code + ".json", folderIds.fy.ledgerFiles, ledgerDoc, {
         appId: window.ERP_CONFIG.APP_ID,
         type: "ledger",
@@ -116,7 +120,7 @@
       ledgerCount: template.ledgers.filter(l => l.groupCode === group.code).length
     }));
 
-    return { template, groupFiles, ledgerFiles, ledgerSummary };
+    return { template, groupFiles, ledgerFiles, ledgerSummary, groupDocs, ledgerDocs };
   }
 
   async function createInitialDriveStructure(setup) {
@@ -290,6 +294,16 @@
     await window.GoogleDrive.updateJsonFile(manifestFile.id, manifest);
 
     await window.LocalDB.setKV("driveState", { root, company, manifest, financialYear });
+
+    // Build initial SQLite database from the JSON chart files. JSON is saved first and remains fallback/audit.
+    if (window.SQLiteManager && window.SQLiteManager.isAvailable()) {
+      try {
+        await window.SQLiteManager.syncLedgersFromJson(chartResult.groupDocs || [], chartResult.ledgerDocs || [], true);
+      } catch (e) {
+        console.warn("Initial SQLite build failed. JSON files remain valid fallback:", e.message || e);
+      }
+    }
+
     return { root, company, manifest, financialYear };
   }
 
