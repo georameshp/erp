@@ -134,6 +134,18 @@
       </tr>`).join(""));
   }
 
+  async function fillEmployeeSelect(selectedId) {
+    const sel = $("#userEmployeeId");
+    sel.empty().append('<option value="">Not linked</option>');
+    if (window.EmployeeManager) {
+      try {
+        const opts = await window.EmployeeManager.getEmployeeOptions();
+        opts.forEach(o => sel.append(`<option value="${escapeAttr(o.id)}">${escapeHtml(o.text)}</option>`));
+      } catch (e) { console.warn("Unable to load employees for user link", e); }
+    }
+    if (selectedId) sel.val(selectedId);
+  }
+
   function openUserModal(mode, userId) {
     const u = cache.users.find(x => x.userId === userId) || null;
     $("#userMode").val(mode);
@@ -143,7 +155,7 @@
     $("#userDisplayName").val(u ? u.displayName || "" : "");
     $("#userGoogleEmail").val(u ? (u.googleEmail || u.email || "") : "");
     $("#userRole").val(u ? u.role : "viewer");
-    $("#userEmployeeId").val(u ? u.employeeId || "" : "");
+    fillEmployeeSelect(u ? u.employeeId || "" : "");
     $("#userStatus").val(u ? u.status || "active" : "active");
     $("#userPassword,#userPasswordConfirm").val("");
     $("#passwordRequiredMark").toggleClass("d-none", mode === "edit");
@@ -285,11 +297,11 @@
     if (session.role === "super_admin" || (session.permissions || []).includes("*")) return true;
     const role = session.role;
     const map = {
-      admin: ["users.view", "users.manage", "ledgers.view", "ledgers.manage", "inventory.view", "transactions.view"],
+      admin: ["users.view", "users.manage", "ledgers.view", "ledgers.manage", "inventory.view", "transactions.view", "employees.view", "employees.manage"],
       accountant: ["ledgers.view", "ledgers.manage", "transactions.view", "transactions.manage"],
       inventory_manager: ["inventory.view", "inventory.manage", "ledgers.view"],
       hr_payroll: ["users.view", "employees.view", "employees.manage", "payroll.view", "payroll.manage"],
-      viewer: ["ledgers.view", "inventory.view", "transactions.view", "reports.view"]
+      viewer: ["ledgers.view", "inventory.view", "transactions.view", "reports.view", "employees.view"]
     };
     return (map[role] || []).includes(permission);
   }
@@ -306,7 +318,7 @@
         const note = "Requested contact: " + request.contact + (request.message ? " | Message: " + request.message : "");
         console.info("User request details:", note);
       }
-      alert("User request loaded. Select/create the employee link when Employee module is available, choose role, set a temporary password, then Save User. The ERP folder will be shared read-only to the user's Gmail.");
+      alert("User request loaded. If needed, first create the employee in Employee Master, then select the employee link, choose role, set a temporary password, and Save User. The ERP folder will be shared read-only to the user's Gmail.");
     }, 300);
   }
 
@@ -335,6 +347,7 @@
     clearSession,
     hasSession: () => !!getSession(),
     openRequest,
+    getUsers: async () => cache.users.length ? cache.users : await loadUsers(),
     can
   };
 
