@@ -97,7 +97,21 @@
   }
 
   async function getFileMetadata(fileId) {
-    const res = await driveFetch(DRIVE_API + "/files/" + fileId + "?fields=id,name,mimeType,modifiedTime,version,headRevisionId,appProperties");
+    const res = await driveFetch(DRIVE_API + "/files/" + fileId + "?fields=id,name,mimeType,modifiedTime,version,headRevisionId,appProperties,permissions(id,emailAddress,role,type)");
+    return await res.json();
+  }
+
+  async function createPermission(fileId, emailAddress, role) {
+    const body = {
+      type: "user",
+      role: role || "reader",
+      emailAddress: emailAddress
+    };
+    const res = await driveFetch(DRIVE_API + "/files/" + fileId + "/permissions?sendNotificationEmail=true&fields=id,type,role,emailAddress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
     return await res.json();
   }
 
@@ -149,6 +163,7 @@
     updateJsonFile,
     updateBinaryFile,
     getFileMetadata,
+    createPermission,
     readJsonFile,
     readBinaryFile,
     findChildByName,
