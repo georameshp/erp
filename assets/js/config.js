@@ -11,6 +11,10 @@ window.ERP_CONFIG = {
   // Note: because this is a GitHub Pages/browser-only app, this key is visible in browser source.
   RESTCOUNTRIES_API_BASE: "https://api.restcountries.com/countries/v5",
   RESTCOUNTRIES_API_KEY: "rc_live_31966f39f6614710913ab07636480955",
+
+  // sql.js is used for the primary fast local/Drive SQLite database.
+  // JSON files remain the audit/source fallback.
+  SQLJS_WASM_URL: "https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.wasm",
   SCOPES: [
     "openid",
     "email",
