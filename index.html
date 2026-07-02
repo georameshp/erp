@@ -184,38 +184,82 @@
   </div>
 </section>
 
-<!-- SHARED COMPANY FOLDER OPEN SCREEN -->
+<!-- COMPANY ACCESS CHOICE SCREEN -->
 <section id="sharedFolderScreen" class="content-wrapper-full d-none">
   <div class="container py-5">
     <div class="row justify-content-center">
-      <div class="col-lg-7">
+      <div class="col-lg-9">
         <div class="card card-outline card-info shadow-sm">
           <div class="card-header">
-            <h3 class="card-title"><i class="fab fa-google-drive mr-2"></i>Open Shared Company Folder</h3>
+            <h3 class="card-title"><i class="fas fa-building mr-2"></i>Company Access</h3>
           </div>
-          <form id="sharedFolderForm">
-            <div class="card-body">
-              <div class="alert alert-info">
-                If this company was shared with your Gmail, paste the shared <b>ERP-App-Data</b> Google Drive folder link or folder ID below.
+          <div class="card-body">
+            <div class="alert alert-info">
+              Choose how you want to continue with Geo ERP.
+            </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <button id="btnShowRegisterUser" class="btn btn-outline-info btn-block p-4" type="button">
+                  <i class="fas fa-user-plus fa-2x d-block mb-2"></i>
+                  <b>1. I want to register as a user in existing company</b>
+                  <span class="d-block small mt-2">Send an email request from your Gmail to the company administrator.</span>
+                </button>
+              </div>
+              <div class="col-md-6 mb-3">
+                <button id="btnCreateNewCompany" class="btn btn-outline-primary btn-block p-4" type="button">
+                  <i class="fas fa-folder-plus fa-2x d-block mb-2"></i>
+                  <b>2. I want to create a new company</b>
+                  <span class="d-block small mt-2">Create a new ERP company folder in your Google Drive.</span>
+                </button>
+              </div>
+            </div>
+
+            <form id="registerUserRequestForm" class="d-none mt-3">
+              <hr>
+              <h5><i class="fas fa-envelope mr-1"></i>Request access to existing company</h5>
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  <label>Your Name <span class="text-danger">*</span></label>
+                  <input id="requestUserName" class="form-control" required placeholder="Your full name">
+                </div>
+                <div class="form-group col-md-6">
+                  <label>Requested Username</label>
+                  <input id="requestUsername" class="form-control" placeholder="Preferred ERP username">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-6">
+                  <label>Your Contact Details</label>
+                  <input id="requestContact" class="form-control" placeholder="Mobile / WhatsApp / phone">
+                </div>
+                <div class="form-group col-md-6">
+                  <label>Company Administrator Email <span class="text-danger">*</span></label>
+                  <input id="requestAdminEmail" type="email" class="form-control" required placeholder="admin@company.com">
+                </div>
               </div>
               <div class="form-group">
+                <label>Message</label>
+                <textarea id="requestMessage" class="form-control" rows="2" placeholder="Please add me to the company ERP."></textarea>
+              </div>
+              <div class="alert alert-warning small">
+                The request email will be sent from your currently logged-in Gmail account. Google may ask for Gmail send permission.
+              </div>
+              <div class="text-right">
+                <button type="submit" class="btn btn-info"><i class="fas fa-paper-plane mr-1"></i> Send Request Email</button>
+              </div>
+            </form>
+
+            <form id="sharedFolderForm" class="mt-4 d-none">
+              <hr>
+              <h5><i class="fab fa-google-drive mr-1"></i>Already approved? Open shared folder</h5>
+              <div class="form-group">
                 <label>Shared Google Drive Folder Link / ID</label>
-                <input id="sharedFolderInput" class="form-control" required placeholder="https://drive.google.com/drive/folders/... or folder ID">
-                <small class="text-muted">The folder must contain <code>company.json</code> and <code>app-manifest.json</code>.</small>
+                <input id="sharedFolderInput" class="form-control" placeholder="https://drive.google.com/drive/folders/... or folder ID">
+                <small class="text-muted">Use this after the administrator shares the ERP-App-Data folder with your Gmail.</small>
               </div>
-              <div class="alert alert-warning small mb-0">
-                Invited users normally have read-only Drive access. ERP role permissions decide which pages are visible.
-              </div>
-            </div>
-            <div class="card-footer d-flex justify-content-between">
-              <button id="btnCreateNewCompany" type="button" class="btn btn-outline-primary">
-                <i class="fas fa-folder-plus mr-1"></i> Create New Company
-              </button>
-              <button type="submit" class="btn btn-info">
-                <i class="fas fa-folder-open mr-1"></i> Open Shared Company
-              </button>
-            </div>
-          </form>
+              <button type="submit" class="btn btn-secondary"><i class="fas fa-folder-open mr-1"></i> Open Shared Company</button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
@@ -523,16 +567,17 @@
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
-<script src="assets/js/config.js?v=20260701-19"></script>
-<script src="assets/js/local-db.js?v=20260701-19"></script>
-<script src="assets/js/google-auth.js?v=20260701-19"></script>
-<script src="assets/js/google-drive.js?v=20260701-19"></script>
-<script src="assets/js/chart-templates.js?v=20260701-19"></script>
-<script src="assets/js/crypto-manager.js?v=20260701-19"></script>
-<script src="assets/js/sync-engine.js?v=20260701-19"></script>
-<script src="assets/js/sqlite-manager.js?v=20260701-19"></script>
-<script src="assets/js/user-manager.js?v=20260701-19"></script>
-<script src="assets/js/ledger-manager.js?v=20260701-19"></script>
-<script src="assets/js/app.js?v=20260701-19"></script>
-</body>
+<script src="assets/js/config.js?v=20260701-20"></script>
+<script src="assets/js/local-db.js?v=20260701-20"></script>
+<script src="assets/js/google-auth.js?v=20260701-20"></script>
+<script src="assets/js/google-drive.js?v=20260701-20"></script>
+<script src="assets/js/gmail-manager.js?v=20260701-20"></script>
+<script src="assets/js/chart-templates.js?v=20260701-20"></script>
+<script src="assets/js/crypto-manager.js?v=20260701-20"></script>
+<script src="assets/js/sync-engine.js?v=20260701-20"></script>
+<script src="assets/js/sqlite-manager.js?v=20260701-20"></script>
+<script src="assets/js/user-manager.js?v=20260701-20"></script>
+<script src="assets/js/ledger-manager.js?v=20260701-20"></script>
+<script src="assets/js/app.js?v=20260701-20"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a14cfe7c0a00de43',t:'MTc4Mjk4ODQyNQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
