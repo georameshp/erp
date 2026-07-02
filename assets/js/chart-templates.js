@@ -1,4 +1,3 @@
-
 /* global window */
 (function () {
   const templates = [
