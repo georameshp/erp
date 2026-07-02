@@ -70,6 +70,8 @@ Implemented skeleton:
    - invited users can open a shared company by pasting the Google Drive folder link/ID
    - reader users are blocked from manage/write permissions in the UI
    - users can be linked to employees later
+   - employee master is available and users can be linked to employees
+   - employee delete is blocked when linked to a user account
    - employee/HR folders are prepared for salary, timesheets, payroll and leave tracking
 14. SQLite primary data layer:
    - `geoerp-FY-xxxx.sqlite` is saved in the financial year folder on Google Drive
