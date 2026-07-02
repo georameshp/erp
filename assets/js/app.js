@@ -614,10 +614,20 @@ $(function () {
       transactions: "Transactions",
       inventory: "Inventory",
       activity: "Activity Log",
+      employees: "Employees",
       users: "Users & Roles",
       settings: "Settings"
     };
     $("#pageTitle").text(titles[route] || "Dashboard");
+    if (route === "employees" && window.EmployeeManager) {
+      if (window.UserManager && !window.UserManager.can("employees.view")) {
+        alert("You are not allowed to view employees.");
+        routeTo("#dashboard");
+        return;
+      }
+      $("#btnAddEmployee").toggle(!window.UserManager || window.UserManager.can("employees.manage"));
+      window.EmployeeManager.loadEmployees().catch(function (err) { console.error(err); alert(err.message || "Unable to load employees."); });
+    }
     if (route === "users" && window.UserManager) {
       if (!window.UserManager.can("users.view")) {
         alert("You are not allowed to view user accounts.");
