@@ -1,4 +1,3 @@
-
 /* global window, initSqlJs, Blob */
 (function () {
   let SQL = null;
