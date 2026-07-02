@@ -56,7 +56,19 @@ Implemented skeleton:
    - ledger delete blocked if opening balance, transactions, or summaries exist
    - group files and ledger-summary.json updated automatically
    - activity events created for create/edit/delete
-13. SQLite primary data layer:
+13. User accounts and roles:
+   - company setup asks for Super Admin username/password
+   - passwords are stored as PBKDF2 encoded hashes with random salt
+   - ERP user login screen appears after Google/Drive login
+   - user accounts support roles: Super Admin, Admin, Accountant, Inventory Manager, HR/Payroll, Viewer
+   - each ERP user is linked to a Google Gmail account
+   - ERP login is allowed only when the current Google account matches the linked Gmail
+   - newly created users are shared the ERP-App-Data Drive folder as reader/viewer
+   - invited users can open a shared company by pasting the Google Drive folder link/ID
+   - reader users are blocked from manage/write permissions in the UI
+   - users can be linked to employees later
+   - employee/HR folders are prepared for salary, timesheets, payroll and leave tracking
+14. SQLite primary data layer:
    - `geoerp-FY-xxxx.sqlite` is saved in the financial year folder on Google Drive
    - JSON files are still written first and remain the fallback/audit source
    - ledger screens load from SQLite first for speed
