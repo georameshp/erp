@@ -8,6 +8,7 @@ Static ERP prototype hosted from GitHub Pages using:
 - Google Identity Services
 - Google Drive API
 - IndexedDB local cache
+- sql.js SQLite database saved to Google Drive
 
 ## Current Build Status
 
@@ -55,6 +56,12 @@ Implemented skeleton:
    - ledger delete blocked if opening balance, transactions, or summaries exist
    - group files and ledger-summary.json updated automatically
    - activity events created for create/edit/delete
+13. SQLite primary data layer:
+   - `geoerp-FY-xxxx.sqlite` is saved in the financial year folder on Google Drive
+   - JSON files are still written first and remain the fallback/audit source
+   - ledger screens load from SQLite first for speed
+   - if SQLite is missing/corrupt/conflicted, the app falls back to JSON and rebuilds SQLite
+   - basic remote modified-time check prevents blindly overwriting a SQLite file changed by another user
 
 ## Required Google Setup
 
