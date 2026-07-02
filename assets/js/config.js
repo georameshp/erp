@@ -19,7 +19,8 @@ window.ERP_CONFIG = {
     "openid",
     "email",
     "profile",
-    "https://www.googleapis.com/auth/drive.file"
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/drive.readonly"
   ].join(" "),
 
   DEFAULT_FOLDERS: [
@@ -27,6 +28,9 @@ window.ERP_CONFIG = {
     "activity-log",
     "snapshots",
     "exports",
-    "attachments"
+    "attachments",
+    "users",
+    "employees",
+    "hr"
   ]
 };
