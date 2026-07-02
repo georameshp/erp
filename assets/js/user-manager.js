@@ -294,6 +294,22 @@
     return (map[role] || []).includes(permission);
   }
 
+  function openRequest(request) {
+    openUserModal("create");
+    setTimeout(function () {
+      $("#userUsername").val(request.username || (request.gmail || "").split("@")[0]);
+      $("#userDisplayName").val(request.name || "");
+      $("#userGoogleEmail").val(request.gmail || "");
+      $("#userRole").val("viewer");
+      $("#userStatus").val("active");
+      if (request.contact) {
+        const note = "Requested contact: " + request.contact + (request.message ? " | Message: " + request.message : "");
+        console.info("User request details:", note);
+      }
+      alert("User request loaded. Select/create the employee link when Employee module is available, choose role, set a temporary password, then Save User. The ERP folder will be shared read-only to the user's Gmail.");
+    }, 300);
+  }
+
   function bindEvents() {
     if (initialized) return;
     initialized = true;
@@ -318,6 +334,7 @@
     saveSession,
     clearSession,
     hasSession: () => !!getSession(),
+    openRequest,
     can
   };
 
